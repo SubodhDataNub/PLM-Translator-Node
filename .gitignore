@@ -1,0 +1,22 @@
+# Repo-wide ignores (each project also has its own .gitignore)
+
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+*service-account*.json
+FLASK_proj/services/test.txt
+
+# Dependencies
+node_modules/
+
+# Local databases and runtime output
+*.db
+*.db-journal
+temp_translations/
+
+# IDEs / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

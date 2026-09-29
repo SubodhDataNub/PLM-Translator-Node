@@ -1,0 +1,33 @@
+{
+  "name": "plm-translator",
+  "version": "1.0.0",
+  "description": "DN Translator - Node.js/Express web application for language translation using Google Cloud Translation API",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@google-cloud/translate": "^10.1.1",
+    "dotenv": "^18.0.4",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "knex": "^3.3.0",
+    "multer": "^2.4.0",
+    "nunjucks": "^3.2.4",
+    "sqlite3": "^6.0.1",
+    "tedious": "^20.0.0"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
+  },
+  "allowScripts": {
+    "sqlite3": true
+  }
+}

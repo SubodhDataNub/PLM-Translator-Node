@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DN Translator</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <style>
+        .stats-card {
+            transition: transform 0.2s;
+        }
+        .stats-card:hover {
+            transform: translateY(-2px);
+        }
+        .table-container {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .filter-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+        .search-box {
+            border-radius: 25px;
+        }
+        .badge-large {
+            font-size: 0.9rem;
+            padding: 0.5rem 0.8rem;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            cursor: default;
+        }
+        
+        .badge-large:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+        }
+        
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s ease;
+        }
+        
+        .sortable:hover {
+            background-color: rgba(0,123,255,0.1);
+        }
+        
+        .text-truncate-custom {
+            max-width: 250px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <img src="{{ url_for('static', filename='images/datanub-logo.png') }}" alt="DataNub" height="40" class="me-2">
+                DN Translator
+            </a>
+            <div class="d-flex gap-2 ms-auto">
+                <a class="btn btn-outline-light btn-sm" href="{{ url_for('main.index') }}">
+                    <i class="fas fa-language me-1"></i>Single Translation
+                </a>
+                <a class="btn btn-outline-light btn-sm" href="{{ url_for('main.mass_translation') }}">
+                    <i class="fas fa-file-excel me-1"></i>Mass Translation
+                </a>
+                <a class="btn btn-light btn-sm active" href="{{ url_for('main.view_test_results') }}">
+                    <i class="fas fa-chart-bar me-1"></i>Test Results
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container my-4">
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="bg-danger text-white rounded-circle p-3">
+                                <i class="fas fa-times-circle fa-lg"></i>
+                            </div>
+                        </div>
+                        <h3 class="mb-1 fw-bold text-danger" id="failedResults">
+                            {{ stats.failed }}
+                        </h3>
+                        <p class="text-muted mb-0">Failed</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="bg-success-green rounded-circle p-3">
+                                <i class="fas fa-check-circle fa-lg"></i>
+                            </div>
+                        </div>
+                        <h3 class="mb-1 fw-bold text-success" id="successResults">
+                            {{ stats.success }}
+                        </h3>
+                        <p class="text-muted mb-0">Successful</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="bg-warning text-white rounded-circle p-3">
+                                <i class="fas fa-exclamation-triangle fa-lg"></i>
+                            </div>
+                        </div>
+                        <h3 class="mb-1 fw-bold text-warning" id="partialResults">
+                            {{ stats.partial }}
+                        </h3>
+                        <p class="text-muted mb-0">Partial</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card stats-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="bg-success-green rounded-circle p-3">
+                                <i class="fas fa-percentage fa-lg"></i>
+                            </div>
+                        </div>
+                        <h3 class="mb-1 fw-bold text-success" id="successRate">
+                            {{ "%.1f"|format(stats.success_rate) }}%
+                        </h3>
+                        <p class="text-muted mb-0">Success Rate</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters and Search -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body filter-section">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="fas fa-search text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control search-box border-start-0" 
+                                   id="searchInput" placeholder="Search by tested by, language, or observation..." 
+                                   value="{{ current_filters.search if current_filters.search else '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="outcomeFilter">
+                            <option value="">All Outcomes</option>
+                            <option value="Success" {% if current_filters.outcome == 'Success' %}selected{% endif %}>Success Only</option>
+                            <option value="Partial" {% if current_filters.outcome == 'Partial' %}selected{% endif %}>Partial Only</option>
+                            <option value="Failed" {% if current_filters.outcome == 'Failed' %}selected{% endif %}>Failed Only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="languageFilter">
+                            <option value="">All Languages</option>
+                            {% for lang in unique_languages %}
+                                {% if lang %}
+                                    <option value="{{ lang }}" {% if current_filters.language == lang %}selected{% endif %}>{{ lang }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="sortBy">
+                            <option value="id_desc" {% if current_filters.sort == 'id_desc' or not current_filters.sort %}selected{% endif %}>Newest ID First</option>
+                            <option value="id_asc" {% if current_filters.sort == 'id_asc' %}selected{% endif %}>Oldest ID First</option>
+                            <option value="created_at_desc" {% if current_filters.sort == 'created_at_desc' %}selected{% endif %}>Newest Date First</option>
+                            <option value="created_at_asc" {% if current_filters.sort == 'created_at_asc' %}selected{% endif %}>Oldest Date First</option>
+                            <option value="accuracy_desc" {% if current_filters.sort == 'accuracy_desc' %}selected{% endif %}>Highest Accuracy</option>
+                            <option value="accuracy_asc" {% if current_filters.sort == 'accuracy_asc' %}selected{% endif %}>Lowest Accuracy</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-primary w-100" onclick="clearFilters()">
+                            <i class="fas fa-times me-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-gradient bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-white">
+                                <i class="fas fa-table me-2"></i>Test Results Database
+                            </h5>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-light btn-sm" onclick="exportResults()">
+                                    <i class="fas fa-download me-1"></i>Export
+                                </button>
+                                <button class="btn btn-outline-light btn-sm" onclick="refreshResults()">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if results|length %}
+                        <div class="table-container">
+                            <table class="table table-hover mb-0" id="resultsTable">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th scope="col" class="text-center sortable" style="width: 60px;" data-sort="id">
+                                            <i class="fas fa-hashtag"></i>ID
+                                            <i class="fas fa-sort ms-1 text-muted"></i>
+                                        </th>
+                                        <th scope="col" style="width: 120px;" class="sortable" data-sort="outcome">
+                                            <i class="fas fa-flag me-1 text-primary"></i>Status
+                                            <i class="fas fa-sort ms-1 text-muted"></i>
+                                        </th>
+                                        <th scope="col" style="width: 80px;">
+                                            <i class="fas fa-percentage me-1"></i>Accuracy
+                                        </th>
+                                        <th scope="col" style="width: 120px;">
+                                            <i class="fas fa-user me-1"></i>Tested By
+                                        </th>
+                                        <th scope="col" style="width: 100px;">
+                                            <i class="fas fa-language me-1"></i>Language
+                                        </th>
+                                        <th scope="col">
+                                            <i class="fas fa-eye me-1"></i>Observation
+                                        </th>
+                                        <th scope="col" style="width: 140px;">
+                                            <i class="fas fa-clock me-1"></i>Created
+                                        </th>
+                                        <th scope="col" style="width: 80px;">
+                                            <i class="fas fa-cog me-1"></i>Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for result in results %}
+                                    <tr class="result-row{% if result.outcome == 'Success' %} table-success-light{% elif result.outcome == 'Partial' %} table-warning-light{% elif result.outcome in ['Failed', 'Failure'] %} table-danger-light{% endif %}" data-result-id="{{ result.id }}">
+                                        <td class="text-center">
+                                            <small class="text-muted">#{{ result.id }}</small>
+                                        </td>
+                                        <td>
+                                            {% if result.outcome == 'Success' %}
+                                                <span class="badge badge-large bg-success shadow-sm" 
+                                                      data-bs-toggle="tooltip" 
+                                                      data-bs-placement="top" 
+                                                      title="Translation completed successfully">
+                                                    <i class="fas fa-check me-1"></i>Success
+                                                </span>
+                                            {% elif result.outcome == 'Partial' %}
+                                                <span class="badge badge-large bg-warning shadow-sm" 
+                                                      data-bs-toggle="tooltip" 
+                                                      data-bs-placement="top" 
+                                                      title="Translation partially successful">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>Partial
+                                                </span>
+                                            {% elif result.outcome in ['Failed', 'Failure'] %}
+                                                <span class="badge badge-large bg-danger shadow-sm" 
+                                                      data-bs-toggle="tooltip" 
+                                                      data-bs-placement="top" 
+                                                      title="Translation failed">
+                                                    <i class="fas fa-times me-1"></i>{{ result.outcome }}
+                                                </span>
+                                            {% else %}
+                                                <span class="badge badge-large bg-secondary shadow-sm" 
+                                                      data-bs-toggle="tooltip" 
+                                                      data-bs-placement="top" 
+                                                      title="Unknown status">
+                                                    <i class="fas fa-question me-1"></i>{{ result.outcome }}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if result.accuracy %}
+                                                <div class="d-flex align-items-center">
+                                                    <div class="progress me-2" style="width: 50px; height: 8px;">
+                                                        <div class="progress-bar 
+                                                            {% if result.accuracy >= 80 %}bg-success
+                                                            {% elif result.accuracy >= 60 %}bg-warning
+                                                            {% else %}bg-danger{% endif %}" 
+                                                            style="width: {{ result.accuracy }}%"></div>
+                                                    </div>
+                                                    <small class="fw-bold">{{ "%.1f"|format(result.accuracy) }}%</small>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if result.tested_by %}
+                                                <div class="d-flex align-items-center">
+                                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                                         style="width: 28px; height: 28px; font-size: 0.75rem;">
+                                                        {{ result.tested_by[0]|upper }}
+                                                    </div>
+                                                    <span class="text-truncate-custom">{{ result.tested_by }}</span>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if result.target_language %}
+                                                <span class="badge bg-info">{{ result.target_language }}</span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if result.observation %}
+                                                <div class="text-truncate-custom">
+                                                    {{ result.observation }}
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">No observation</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if result.created_at %}
+                                                <div>
+                                                    <div class="fw-bold">{{ result.created_at|strftime('%m/%d/%Y') }}</div>
+                                                    <small class="text-muted">{{ result.created_at|strftime('%H:%M') }}</small>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-primary" type="button" 
+                                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li>
+                                                        <a class="dropdown-item" href="#" data-result-id="{{ result.id }}">
+                                                            <i class="fas fa-eye me-2"></i>View Details
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="fas fa-database fa-4x text-muted mb-3"></i>
+                                <h4 class="text-muted mb-2">No Test Results Found</h4>
+                                <p class="text-muted mb-4">Start translating to see your results here!</p>
+                                <div class="d-flex gap-2 justify-content-center">
+                                    <a href="/" class="btn btn-primary">
+                                        <i class="fas fa-language me-2"></i>Single Translation
+                                    </a>
+                                    <a href="{{ url_for('main.mass_translation') }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-file-excel me-2"></i>Mass Translation
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-light">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-info-circle text-primary me-2"></i>
+                                    <small class="text-muted">
+                                        Showing {{ ((pagination.page - 1) * pagination.per_page + 1) if results|length else 0 }} to 
+                                        {{ (pagination.page - 1) * pagination.per_page + results|length }} of 
+                                        <span id="totalResultsFooter">{{ pagination.total }}</span> results
+                                        {% if pagination.pages > 1 %}(Page {{ pagination.page }} of {{ pagination.pages }}){% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex gap-2 justify-content-end">
+                                    <a href="/api/test-results" class="btn btn-sm btn-outline-secondary" target="_blank">
+                                        <i class="fas fa-code me-1"></i>API JSON
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-primary" type="button" onclick="exportResults()">
+                                        <i class="fas fa-file-excel me-1"></i>Export Excel
+                                    </button>
+                                </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pagination Controls -->
+                {% if pagination.pages > 1 %}
+                <div class="d-flex justify-content-center mt-4">
+                    <nav aria-label="Test results pagination">
+                        <ul class="pagination pagination-lg">
+                            <!-- Previous button -->
+                            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                                <a class="page-link" href="{% if pagination.has_prev %}{{ url_for('main.view_test_results', page=pagination.prev_num, per_page=pagination.per_page, outcome=current_filters.outcome, language=current_filters.language, q=current_filters.search, sort=current_filters.sort) }}{% else %}#{% endif %}" 
+                                   aria-label="Previous">
+                                    <span aria-hidden="true"><i class="fas fa-chevron-left"></i></span>
+                                </a>
+                            </li>
+                            
+                            <!-- Page numbers -->
+                            {% for page_num in pagination.iter_pages %}
+                                {% if page_num %}
+                                    {% if page_num != pagination.page %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('main.view_test_results', page=page_num, per_page=pagination.per_page, outcome=current_filters.outcome, language=current_filters.language, q=current_filters.search, sort=current_filters.sort) }}">{{ page_num }}</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">…</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <!-- Next button -->
+                            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                                <a class="page-link" href="{% if pagination.has_next %}{{ url_for('main.view_test_results', page=pagination.next_num, per_page=pagination.per_page, outcome=current_filters.outcome, language=current_filters.language, q=current_filters.search, sort=current_filters.sort) }}{% else %}#{% endif %}" 
+                                   aria-label="Next">
+                                    <span aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                
+                <!-- Per-page selector -->
+                <div class="d-flex justify-content-center mt-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <small class="text-muted">Records per page:</small>
+                        <select class="form-select form-select-sm" style="width: auto;" onchange="changePerPage(this.value)">
+                            <option value="25" {% if pagination.per_page == 25 %}selected{% endif %}>25</option>
+                            <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
+                            <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100</option>
+                            <option value="200" {% if pagination.per_page == 200 %}selected{% endif %}>200</option>
+                        </select>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Details Modal -->
+    <div class="modal fade" id="resultDetailsModal" tabindex="-1" aria-labelledby="resultDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-primary" id="resultDetailsModalLabel">
+                        <i class="fas fa-eye me-2"></i>Test Result Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="resultDetailsContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+
+        // Store original results for filtering
+        let allResults = [];
+        let filteredResults = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Bootstrap tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Add event listeners for server-side filtering
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyFilters();
+                }
+            });
+            
+            document.getElementById('outcomeFilter').addEventListener('change', applyFilters);
+            document.getElementById('languageFilter').addEventListener('change', applyFilters);
+            document.getElementById('sortBy').addEventListener('change', applyFilters);
+            
+            // Add event delegation for view details clicks
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.dropdown-item[data-result-id]')) {
+                    e.preventDefault();
+                    const resultId = e.target.closest('.dropdown-item[data-result-id]').getAttribute('data-result-id');
+                    console.log('Click detected on view details for result ID:', resultId);
+                    if (resultId) {
+                        viewDetails(parseInt(resultId));
+                    }
+                }
+            });
+        });
+
+        // Apply server-side filters and sorting
+        function applyFilters() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Get filter values
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            const outcomeFilter = document.getElementById('outcomeFilter').value;
+            const languageFilter = document.getElementById('languageFilter').value;
+            const sortBy = document.getElementById('sortBy').value;
+            
+            // Reset to first page when applying filters
+            urlParams.set('page', '1');
+            
+            // Set or remove parameters
+            if (searchTerm) {
+                urlParams.set('q', searchTerm);
+            } else {
+                urlParams.delete('q');
+            }
+            
+            if (outcomeFilter) {
+                urlParams.set('outcome', outcomeFilter);
+            } else {
+                urlParams.delete('outcome');
+            }
+            
+            if (languageFilter) {
+                urlParams.set('language', languageFilter);
+            } else {
+                urlParams.delete('language');
+            }
+            
+            if (sortBy && sortBy !== 'id_desc') {
+                urlParams.set('sort', sortBy);
+            } else {
+                urlParams.delete('sort');
+            }
+            
+            // Navigate to new URL
+            window.location.search = urlParams.toString();
+        }
+
+        // Filter results based on search and filters (now triggers server-side filtering)
+        function filterResults() {
+            applyFilters();
+        }
+
+        // Sort results (now triggers server-side sorting)
+        function sortResults() {
+            applyFilters();
+        }
+
+        // Update display after filtering/sorting (for client-side filtering within current page)
+        function updateDisplay() {
+            const tbody = document.querySelector('#resultsTable tbody');
+            
+            // Clear current display
+            Array.from(tbody.children).forEach(row => row.style.display = 'none');
+            
+            // Show filtered results
+            filteredResults.forEach((row, index) => {
+                row.style.display = '';
+                tbody.appendChild(row); // Reorder
+            });
+
+            // Update visible count only (total stats are server-side calculated)
+            const visibleCount = filteredResults.length;
+            const totalOnPage = allResults.length;
+            
+            // Update the pagination info to show filtered count if different
+            if (visibleCount !== totalOnPage) {
+                document.querySelector('.text-muted small').innerHTML = 
+                    `Showing ${visibleCount} of ${totalOnPage} results on this page (filtered)`;
+            }
+        }
+
+        // Clear all filters
+        function clearFilters() {
+            // Reset form fields
+            document.getElementById('searchInput').value = '';
+            document.getElementById('outcomeFilter').value = '';
+            document.getElementById('languageFilter').value = '';
+            document.getElementById('sortBy').value = 'id_desc';
+            
+            // Navigate to clean URL (keeping only page and per_page if needed)
+            const urlParams = new URLSearchParams(window.location.search);
+            const perPage = urlParams.get('per_page');
+            
+            const newParams = new URLSearchParams();
+            newParams.set('page', '1');
+            if (perPage && perPage !== '50') {
+                newParams.set('per_page', perPage);
+            }
+            
+            window.location.search = newParams.toString();
+        }
+
+        // View result details
+        async function viewDetails(resultId) {
+            try {
+                console.log('Viewing details for result ID:', resultId);
+                
+                // Check if modal element exists
+                const modalElement = document.getElementById('resultDetailsModal');
+                if (!modalElement) {
+                    console.error('Modal element not found');
+                    alert('Error: Modal element not found');
+                    return;
+                }
+                
+                const modal = new bootstrap.Modal(modalElement, {
+                    backdrop: true,
+                    keyboard: true,
+                    focus: true
+                });
+                
+                const content = document.getElementById('resultDetailsContent');
+                if (!content) {
+                    console.error('Modal content element not found');
+                    alert('Error: Modal content element not found');
+                    return;
+                }
+                
+                // Show loading
+                content.innerHTML = `
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading result details...</p>
+                    </div>
+                `;
+                
+                // Show modal first
+                modal.show();
+                console.log('Modal should be visible now');
+                
+                // Fetch details
+                const response = await fetch(`/api/test-results?id=${resultId}`);
+                console.log('API response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('API response data:', data);
+                
+                if (data.success && data.results && data.results.length > 0) {
+                    const result = data.results[0];
+                    content.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary">Basic Information</h6>
+                                <table class="table table-sm">
+                                    <tr><td><strong>ID:</strong></td><td>#${result.id}</td></tr>
+                                    <tr><td><strong>Outcome:</strong></td><td>
+                                        <span class="badge ${getStatusBadgeClass(result.outcome)}">
+                                            ${result.outcome}
+                                        </span>
+                                    </td></tr>
+                                    <tr><td><strong>Accuracy:</strong></td><td>${result.accuracy ? result.accuracy.toFixed(1) + '%' : '-'}</td></tr>
+                                    <tr><td><strong>Tested By:</strong></td><td>${result.tested_by || '-'}</td></tr>
+                                    <tr><td><strong>Language:</strong></td><td>${result.target_language || '-'}</td></tr>
+                                    <tr><td><strong>Session:</strong></td><td>${result.session_id || '-'}</td></tr>
+                                    <tr><td><strong>Created:</strong></td><td>${formatDateTime(result.created_at)}</td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-primary">Content</h6>
+                                <div class="mb-3">
+                                    <label class="form-label text-primary"><strong>Original Text:</strong></label>
+                                    <div class="form-control" style="height: auto; min-height: 60px; max-height: 120px; overflow-y: auto;">
+                                        ${escapeHtml(result.text_to_translate || 'No original text recorded')}
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label"><strong>Translated Text:</strong></label>
+                                    <div class="form-control" style="height: auto; min-height: 60px; max-height: 120px; overflow-y: auto;">
+                                        ${escapeHtml(result.translated_text || 'No translation recorded')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <h6 class="text-primary">Observation</h6>
+                                <div class="form-control" style="height: auto; min-height: 80px; max-height: 150px; overflow-y: auto;">
+                                    ${escapeHtml(result.observation || 'No observation recorded')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = '<div class="alert alert-warning">Result details not found or invalid response.</div>';
+                }
+            } catch (error) {
+                console.error('Error loading result details:', error);
+                document.getElementById('resultDetailsContent').innerHTML = 
+                    `<div class="alert alert-danger">
+                        <h6>Error loading result details</h6>
+                        <small>${error.message}</small>
+                    </div>`;
+            }
+        }
+
+        // Helper function to get appropriate badge class
+        function getStatusBadgeClass(outcome) {
+            switch(outcome) {
+                case 'Success': return 'bg-success';
+                case 'Partial': return 'bg-warning';
+                case 'Failed': 
+                case 'Failure': return 'bg-danger';
+                default: return 'bg-secondary';
+            }
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Helper function to format date time
+        function formatDateTime(dateTimeString) {
+            if (!dateTimeString) return '-';
+            try {
+                const date = new Date(dateTimeString);
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+            } catch (e) {
+                return dateTimeString;
+            }
+        }
+
+        // Copy text to clipboard
+        async function copyText(text) {
+            if (!text || text.trim() === '') {
+                showToast('No text to copy', 'warning');
+                return;
+            }
+            
+            try {
+                // Check if the Clipboard API is available
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    showToast('Text copied to clipboard!', 'success');
+                } else {
+                    // Fallback for older browsers or non-secure contexts
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.opacity = '0';
+                    textArea.style.top = '-999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    if (successful) {
+                        showToast('Text copied to clipboard!', 'success');
+                    } else {
+                        showToast('Failed to copy text. Please copy manually.', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error copying text:', error);
+                showToast('Failed to copy text. Please copy manually.', 'error');
+            }
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toastColors = {
+                success: 'bg-success',
+                warning: 'bg-warning',
+                error: 'bg-danger',
+                info: 'bg-info'
+            };
+            
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white ${toastColors[type] || 'bg-success'} border-0`;
+            toast.style.position = 'fixed';
+            toast.style.top = '20px';
+            toast.style.right = '20px';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+            bsToast.show();
+            
+            // Remove toast element after it's hidden
+            toast.addEventListener('hidden.bs.toast', () => {
+                if (document.body.contains(toast)) {
+                    document.body.removeChild(toast);
+                }
+            });
+        }
+
+        // Export results using current filters (outcome, language, search)
+        function exportResults() {
+            const outcome = document.getElementById('outcomeFilter').value || '';
+            const language = document.getElementById('languageFilter').value || '';
+            const q = document.getElementById('searchInput').value || '';
+
+            const params = new URLSearchParams();
+            if (outcome) params.append('outcome', outcome);
+            console.log(outcome);
+            if (language) params.append('language', language);
+            if (q) params.append('q', q);
+
+            const url = '/api/export-test-results' + (params.toString() ? ('?' + params.toString()) : '');
+            window.open(url, '_blank');
+        }
+
+        // Change per page count
+        function changePerPage(perPage) {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('per_page', perPage);
+            urlParams.set('page', '1'); // Reset to first page
+            window.location.search = urlParams.toString();
+        }
+
+        // Refresh results
+        function refreshResults() {
+            location.reload();
+        }
+
+        // Initialize dropdown positioning for action buttons in scrollable table
+        document.addEventListener('DOMContentLoaded', function() {
+            // Configure Bootstrap dropdowns in table to prevent overlap with sticky header
+            const tableContainer = document.querySelector('.table-container');
+            if (tableContainer) {
+                // Find all dropdown buttons in the table
+                const dropdownButtons = tableContainer.querySelectorAll('[data-bs-toggle="dropdown"]');
+                
+                dropdownButtons.forEach(button => {
+                    // Initialize with proper positioning
+                    const dropdown = new bootstrap.Dropdown(button, {
+                        boundary: 'clippingParents', // Use clipping parents as boundary
+                        display: 'dynamic', // Allow dynamic positioning
+                        popperConfig: {
+                            strategy: 'absolute', // Use absolute positioning relative to parent
+                            modifiers: [
+                                {
+                                    name: 'preventOverflow',
+                                    options: {
+                                        boundary: 'clippingParents',
+                                        padding: 8
+                                    }
+                                },
+                                {
+                                    name: 'flip',
+                                    options: {
+                                        fallbackPlacements: ['top-start', 'top-end', 'bottom-start', 'bottom-end'],
+                                        padding: 8
+                                    }
+                                },
+                                {
+                                    name: 'offset',
+                                    options: {
+                                        offset: [0, 4] // Small offset from trigger
+                                    }
+                                },
+                                {
+                                    name: 'computeStyles',
+                                    options: {
+                                        adaptive: false // Disable adaptive positioning
+                                    }
+                                }
+                            ]
+                        }
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

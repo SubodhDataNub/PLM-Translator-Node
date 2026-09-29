@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Environment variables / credentials
+.env
+.env.local
+.env.*.local
+*service-account*.json
+
+# Local databases and runtime files
+data/*.db
+data/*.db-journal
+temp_translations/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDEs / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
