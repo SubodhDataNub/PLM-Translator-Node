@@ -5,7 +5,9 @@
 .env.*
 !.env.example
 *service-account*.json
-FLASK_proj/services/test.txt
+
+# Legacy Flask version (kept locally, not part of this repository)
+FLASK_proj/
 
 # Dependencies
 node_modules/
@@ -14,6 +16,7 @@ node_modules/
 *.db
 *.db-journal
 temp_translations/
+translation_results*.xlsx
 
 # IDEs / OS
 .vscode/
