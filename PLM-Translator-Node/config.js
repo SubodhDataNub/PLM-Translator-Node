@@ -203,9 +203,14 @@ function getDatabaseConfig(environment) {
  * Google Cloud Translation API configuration.
  *
  * Two authentication options are supported:
- *  - API key (GOOGLE_TRANSLATE_API_KEY)            -> Cloud Translation Basic (v2)
- *  - Service account / ADC (GOOGLE_CLOUD_PROJECT_ID) -> Cloud Translation Advanced (v3)
+ *  - Service account / ADC (GOOGLE_CLOUD_PROJECT_ID) -> Cloud Translation Advanced (v3),
+ *    using the Translation LLM model by default
+ *  - API key (GOOGLE_TRANSLATE_API_KEY)            -> Cloud Translation Basic (v2),
+ *    standard model only (Basic has no LLM)
+ * When both are configured, Advanced is used.
  */
+const DEFAULT_MODEL = 'general/translation-llm';
+
 class GoogleTranslateConfig {
     static load() {
         let credentials = null;
@@ -223,11 +228,12 @@ class GoogleTranslateConfig {
             || (credentials && credentials.project_id)
             || null;
 
+        // Prefer Advanced: it is the only edition with the Translation LLM
         let edition = null;
-        if (apiKey) {
-            edition = 'basic';
-        } else if (projectId) {
+        if (projectId) {
             edition = 'advanced';
+        } else if (apiKey) {
+            edition = 'basic';
         }
 
         return {
@@ -236,7 +242,8 @@ class GoogleTranslateConfig {
             projectId,
             location: process.env.GOOGLE_CLOUD_LOCATION || 'global',
             credentials,
-            model: process.env.GOOGLE_TRANSLATE_MODEL || null,
+            // Set GOOGLE_TRANSLATE_MODEL=general/nmt to use the standard model instead
+            model: process.env.GOOGLE_TRANSLATE_MODEL || DEFAULT_MODEL,
             // Batching / rate limiting
             maxCharsPerRequest: intFromEnv('TRANSLATE_MAX_CHARS_PER_REQUEST', 5000),
             requestDelayMs: intFromEnv('TRANSLATE_REQUEST_DELAY_MS', 250),

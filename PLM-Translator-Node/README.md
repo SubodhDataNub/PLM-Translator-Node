@@ -29,23 +29,11 @@ If no database is configured, development mode uses SQLite at `data/plm_translat
 
 1. In the [Google Cloud console](https://console.cloud.google.com/), create a project (or pick an existing one) and enable billing.
 2. Enable the **Cloud Translation API** for the project.
-3. Choose **one** of these authentication options:
+3. Choose one of these authentication options. If both are configured, Option A is used.
 
-### Option A: API key (Cloud Translation Basic, v2)
+### Option A (recommended): Cloud Translation Advanced (v3), with the Translation LLM
 
-This is the simplest option. It works like the Azure subscription key did.
-
-- Go to **APIs & Services → Credentials → Create credentials → API key**.
-- Restrict the key to the **Cloud Translation API**.
-- Set it in `.env`:
-
-  ```
-  GOOGLE_TRANSLATE_API_KEY=your-api-key
-  ```
-
-### Option B: Service account (Cloud Translation Advanced, v3)
-
-This option is recommended for production. It also supports choosing a model.
+Advanced uses Google's **Translation LLM** model by default. In our comparison it was more accurate than the standard model. To use the standard model instead, set `GOOGLE_TRANSLATE_MODEL=general/nmt`.
 
 - Go to **IAM & Admin → Service accounts**, create an account, and grant it the **Cloud Translation API User** role.
 - Create a JSON key for the account.
@@ -60,12 +48,35 @@ This option is recommended for production. It also supports choosing a model.
 
 - Optional settings:
   - `GOOGLE_CLOUD_LOCATION` (default `global`).
-  - `GOOGLE_TRANSLATE_MODEL`, e.g. `general/nmt` or `general/translation-llm`. The `translation-llm` model needs `GOOGLE_CLOUD_LOCATION=us-central1`.
+  - `GOOGLE_TRANSLATE_MODEL` (default `general/translation-llm`; `general/nmt` selects the standard model).
 
-At startup, the server logs which option is active:
+**If your organization blocks service account keys** (`iam.disableServiceAccountKeyCreation`), use your own Google login for local development instead. This is Application Default Credentials, and it needs no key file:
 
 ```
-Translation provider: Google Cloud Translation Basic (v2) - API key
+gcloud auth application-default login
+gcloud auth application-default set-quota-project your-project-id
+```
+
+Then set only `GOOGLE_CLOUD_PROJECT_ID` and leave `GOOGLE_APPLICATION_CREDENTIALS` unset. This login only works on your own machine. A server deployment (e.g. Azure) needs a service account key or Workload Identity Federation.
+
+**Translation LLM and languages:** the Translation LLM supports fewer languages than the standard model. The app still offers every language: when the LLM rejects one, the app translates that language with the standard model instead and logs a message.
+
+### Option B: API key, Cloud Translation Basic (v2), standard model only
+
+This is the simplest setup, and it works like the Azure subscription key did. Basic does not offer the Translation LLM.
+
+- Go to **APIs & Services → Credentials → Create credentials → API key**.
+- Restrict the key to the **Cloud Translation API**.
+- Set it in `.env`:
+
+  ```
+  GOOGLE_TRANSLATE_API_KEY=your-api-key
+  ```
+
+At startup, the server logs which option and model are active:
+
+```
+Translation provider: Google Cloud Translation Advanced (v3) - project your-project-id, location global, model general/translation-llm
 ```
 
 Until credentials are set, the pages still load with a built-in fallback language list, and translate requests return a "not configured" error.
@@ -77,8 +88,9 @@ All settings are environment variables. See `.env.example` for the full annotate
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `5000` | HTTP port (Azure App Service and Cloud Run set this automatically) |
-| `GOOGLE_TRANSLATE_API_KEY` | – | Option A (v2) |
-| `GOOGLE_CLOUD_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS` / `GOOGLE_CREDENTIALS_JSON` | – | Option B (v3) |
+| `GOOGLE_CLOUD_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS` / `GOOGLE_CREDENTIALS_JSON` | – | Option A: Advanced (v3) |
+| `GOOGLE_TRANSLATE_MODEL` | `general/translation-llm` | Advanced model; `general/nmt` selects the standard model |
+| `GOOGLE_TRANSLATE_API_KEY` | – | Option B: Basic (v2), standard model only |
 | `TRANSLATE_BATCH_SIZE` | `25` | Texts per API request during mass translation |
 | `TRANSLATE_MAX_CHARS_PER_REQUEST` | `5000` | Character cap per request (Google recommends ≤ 5,000) |
 | `TRANSLATE_REQUEST_DELAY_MS` | `250` | Pause between batch requests |

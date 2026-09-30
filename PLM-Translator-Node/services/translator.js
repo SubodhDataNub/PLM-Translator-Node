@@ -20,7 +20,7 @@ const MAX_SEGMENTS_PER_REQUEST = { basic: 128, advanced: 1024 };
 const LANGUAGES_RETRY_INTERVAL_MS = 60 * 1000;
 
 // Google lists some languages twice: under a legacy/alias code and under the current code
-const LANGUAGE_ALIASES = { zh: 'zh-CN', iw: 'he', jw: 'jv' };
+const LANGUAGE_ALIASES = { zh: 'zh-CN', iw: 'he', jw: 'jv', tl: 'fil' };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -42,6 +42,7 @@ class TranslatorService {
         this.languagesCache = null;
         this.languagesFailedAt = 0;
         this._v3Client = null;
+        this.modelUnsupportedTargets = new Set(); // target languages the configured model rejected
     }
 
     isConfigured() {
@@ -314,7 +315,8 @@ class TranslatorService {
 
     async _translateV2(texts, targetLanguage, timeoutMs) {
         const body = { q: texts, target: targetLanguage, format: 'text' };
-        if (this.config.model) body.model = this.config.model;
+        // Basic (v2) only knows the 'nmt' and 'base' models; Advanced model names are ignored here
+        if (/^(nmt|base)$/.test(this.config.model || '')) body.model = this.config.model;
 
         let response;
         try {
@@ -370,7 +372,9 @@ class TranslatorService {
             mimeType: 'text/plain',
             targetLanguageCode: targetLanguage
         };
-        if (this.config.model) request.model = this._v3ModelPath();
+        // Use the configured model unless it is known not to support this target language
+        const useModel = Boolean(this.config.model) && !this.modelUnsupportedTargets.has(targetLanguage);
+        if (useModel) request.model = this._v3ModelPath();
 
         try {
             const [response] = await this._getV3Client().translateText(request, { timeout: timeoutMs });
@@ -379,6 +383,13 @@ class TranslatorService {
                 detectedLanguage: t.detectedLanguageCode || null
             }));
         } catch (e) {
+            // Models such as the Translation LLM support fewer languages than the standard model:
+            // fall back to the standard model for those languages instead of failing
+            if (useModel && e.code === 3 && /unsupported language pair/i.test(e.details || e.message || '')) {
+                console.log(`Model ${this.config.model} does not support '${targetLanguage}' - using the standard model instead`);
+                this.modelUnsupportedTargets.add(targetLanguage);
+                return this._translateV3(texts, targetLanguage, timeoutMs);
+            }
             // gRPC status codes: 4 DEADLINE_EXCEEDED, 8 RESOURCE_EXHAUSTED, 14 UNAVAILABLE
             if (e.code === 4) {
                 throw new TranslationError('Request timed out', { timeout: true });

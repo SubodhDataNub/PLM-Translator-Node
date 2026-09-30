@@ -15,10 +15,10 @@ const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
 function describeTranslator() {
     const cfg = translatorService.config;
     if (cfg.edition === 'advanced') {
-        return `Google Cloud Translation Advanced (v3) - project ${cfg.projectId}, location ${cfg.location}`;
+        return `Google Cloud Translation Advanced (v3) - project ${cfg.projectId}, location ${cfg.location}, model ${cfg.model}`;
     }
     if (cfg.edition === 'basic') {
-        return 'Google Cloud Translation Basic (v2) - API key';
+        return 'Google Cloud Translation Basic (v2) - API key, standard model (the Translation LLM needs Advanced)';
     }
     return 'NOT CONFIGURED - set GOOGLE_TRANSLATE_API_KEY or GOOGLE_CLOUD_PROJECT_ID (see .env.example)';
 }
