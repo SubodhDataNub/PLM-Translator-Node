@@ -1,0 +1,4 @@
+﻿name: projects/cloud-translation-510109/policies/iam.disableServiceAccountKeyCreation
+spec:
+  rules:
+  - enforce: false
