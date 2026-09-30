@@ -484,6 +484,150 @@ router.get('/download-template', async (req, res) => {
     }
 });
 
+const MASS_OBSERVATION_ROW = /^Mass translation(?: FAILED)? - Row (\d+)/;
+
+function isFailureOutcome(outcome) {
+    return ['failure', 'failed'].includes(String(outcome || '').toLowerCase());
+}
+
+/**
+ * Recover the original spreadsheet description and the error message from a mass translation record.
+ * Observations look like 'Mass translation - Row 3 - <description>' or
+ * 'Mass translation FAILED - Row 3 - Error: <error> - <description>' (translated_text is 'ERROR: <error>').
+ */
+function parseMassObservation(record) {
+    const observation = record.observation || '';
+    if (!isFailureOutcome(record.outcome)) {
+        const match = observation.match(/^Mass translation - Row \d+(?: - ([\s\S]*))?$/);
+        return { description: match && match[1] ? match[1] : '', error: '' };
+    }
+
+    const errorMessage = (record.translated_text || '').replace(/^ERROR: /, '');
+    let description = '';
+    const prefix = observation.match(/^Mass translation FAILED - Row \d+ - Error: /);
+    if (prefix && errorMessage) {
+        const rest = observation.slice(prefix[0].length);
+        if (rest.startsWith(errorMessage)) {
+            description = rest.slice(errorMessage.length).replace(/^ - /, '');
+        }
+    }
+    return { description, error: errorMessage || observation || 'Translation failed' };
+}
+
+/**
+ * Build the results sheet for a mass translation session: one row per source text,
+ * with one column per target language (in the order the languages were translated).
+ */
+function buildSessionResultSheet(records, languagesList) {
+    const languageMap = {};
+    for (const lang of languagesList) {
+        if (lang.key) languageMap[lang.key] = lang.text;
+    }
+
+    const languageHeaders = new Map(); // language code -> column header
+    const groups = new Map();          // source row -> { row, sourceText, description, translations, errors }
+
+    records.forEach((record, i) => {
+        const match = (record.observation || '').match(MASS_OBSERVATION_ROW);
+        const rowNum = match ? parseInt(match[1], 10) : i + 1;
+        const key = match ? `row:${rowNum}` : `id:${record.id}`;
+
+        const code = parseLanguageCode(record.target_language, languagesList);
+        if (!languageHeaders.has(code)) {
+            const storedName = (record.target_language || '').slice(code.length + 1);
+            const name = languageMap[code] || storedName || code.toUpperCase();
+            languageHeaders.set(code, `${name} (${code.toUpperCase()})`);
+        }
+
+        let group = groups.get(key);
+        if (!group) {
+            group = { row: rowNum, sourceText: record.text_to_translate || '', description: '', translations: {}, errors: {} };
+            groups.set(key, group);
+        }
+
+        const { description, error } = parseMassObservation(record);
+        if (description && !group.description) group.description = description;
+        if (isFailureOutcome(record.outcome)) {
+            group.errors[code] = error;
+        } else {
+            group.translations[code] = record.translated_text || '';
+        }
+    });
+
+    const rows = [...groups.values()].sort((a, b) => a.row - b.row);
+    const hasDescription = rows.some((group) => group.description);
+    const fixedColumns = ['Row', 'Source Text', 'Status', ...(hasDescription ? ['Description'] : [])];
+    const columns = [...fixedColumns, ...languageHeaders.values(), 'Errors'];
+
+    const sheetRecords = rows.map((group) => {
+        const failedCodes = Object.keys(group.errors);
+        let status = 'Success';
+        if (failedCodes.length > 0) {
+            status = Object.keys(group.translations).length > 0 ? 'Partial' : 'Failed';
+        }
+
+        // Missing values are left as truly blank cells (null), not empty strings
+        const record = { 'Row': group.row, 'Source Text': group.sourceText, 'Status': status };
+        if (hasDescription) record['Description'] = group.description || null;
+        for (const [code, header] of languageHeaders) {
+            record[header] = group.translations[code] ?? null;
+        }
+        record['Errors'] = failedCodes.map((code) => `${code.toUpperCase()}: ${group.errors[code]}`).join('; ') || null;
+        return record;
+    });
+
+    return { columns, records: sheetRecords, frozenColumns: fixedColumns.length };
+}
+
+/** Build sheet rows from client-provided results (backward compatibility) */
+function buildLegacyResultRecords(results, languagesList) {
+    const languageMap = {};
+    for (const lang of languagesList) {
+        if (lang.key) languageMap[lang.key] = lang.text;
+    }
+
+    // Create rows from results - handle multiple languages
+    return results.map((result) => {
+        const baseRow = {
+            'Row': result.row ?? '',
+            'Source Text': result.source_text ?? '',
+            'Status': result.success ? 'Success' : 'Failed'
+        };
+
+        // Add description if available from the original data
+        if (result.description) {
+            baseRow['Description'] = result.description;
+        }
+
+        const translations = result.translations || {};
+        if (result.success && Object.keys(translations).length > 0) {
+            // Multiple languages - create columns for each language
+            for (const [langCode, translation] of Object.entries(translations)) {
+                const langDescription = languageMap[langCode] || langCode.toUpperCase();
+                baseRow[`${langDescription} (${langCode.toUpperCase()})`] = translation;
+            }
+
+            if ('successful_languages' in result) {
+                baseRow['Successful Languages'] = `${result.successful_languages}/${result.total_languages}`;
+            }
+
+            baseRow['Errors'] = Array.isArray(result.errors) && result.errors.length > 0
+                ? result.errors.join('; ')
+                : '';
+        } else if (result.success && result.translated_text) {
+            // Single language (backward compatibility)
+            baseRow['Translation'] = result.translated_text;
+            baseRow['Detected Language'] = result.detected_language || '';
+            baseRow['Errors'] = '';
+        } else {
+            // Failed translation
+            baseRow['Translation'] = '';
+            baseRow['Errors'] = !result.success ? (result.error || '') : '';
+        }
+        return baseRow;
+    });
+}
+
 /** API endpoint to download translation results as Excel file - fetches all results from database */
 router.post('/download-translation-results', async (req, res) => {
     try {
@@ -494,91 +638,35 @@ router.post('/download-translation-results', async (req, res) => {
 
         // Get language descriptions for mapping
         const languagesList = await translatorService.getSupportedLanguages();
-        const languageMap = {};
-        for (const lang of languagesList) {
-            if (lang.key) languageMap[lang.key] = lang.text;
-        }
 
-        let results;
+        let sheet;
         if (sessionId) {
             // Fetch all results from database by session_id
             const rows = await models.getDb()(models.TABLE).where({ session_id: sessionId }).orderBy('id');
             if (rows.length === 0) {
                 return res.status(400).json({ error: 'No translation results found for this session' });
             }
-
-            // Convert database results to the format expected by the Excel generator
-            results = rows.map((row, i) => {
-                const result = models.toTestResult(row);
-                // Extract row number from observation if available
-                let rowNum = i + 1;
-                const match = result.observation && result.observation.match(/Row (\d+)/);
-                if (match) rowNum = parseInt(match[1], 10);
-
-                const langCode = parseLanguageCode(result.target_language, languagesList);
-                return {
-                    row: rowNum,
-                    source_text: result.text_to_translate || '',
-                    success: result.outcome === 'Success',
-                    translations: result.translated_text ? { [langCode]: result.translated_text } : {},
-                    description: result.observation || '',
-                    error: result.outcome !== 'Success' ? result.observation : ''
-                };
-            });
+            sheet = buildSessionResultSheet(rows.map(models.toTestResult), languagesList);
         } else if (data && typeof data === 'object' && 'results' in data) {
             // Fallback to provided results (for backward compatibility)
-            results = data.results;
+            if (!Array.isArray(data.results) || data.results.length === 0) {
+                return res.status(400).json({ error: 'No translation results to download' });
+            }
+            sheet = { columns: null, records: buildLegacyResultRecords(data.results, languagesList), frozenColumns: 2 };
         } else {
             return res.status(400).json({ error: 'No translation results or session_id provided' });
         }
 
-        if (!Array.isArray(results) || results.length === 0) {
-            return res.status(400).json({ error: 'No translation results to download' });
-        }
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = addRecordsSheet(workbook, 'Translation Results', sheet.records, { columns: sheet.columns });
 
-        // Create rows from results - handle multiple languages
-        const records = results.map((result) => {
-            const baseRow = {
-                'Row': result.row ?? '',
-                'Source Text': result.source_text ?? '',
-                'Status': result.success ? 'Success' : 'Failed'
-            };
-
-            // Add description if available from the original data
-            if (result.description) {
-                baseRow['Description'] = result.description;
-            }
-
-            const translations = result.translations || {};
-            if (result.success && Object.keys(translations).length > 0) {
-                // Multiple languages - create columns for each language
-                for (const [langCode, translation] of Object.entries(translations)) {
-                    const langDescription = languageMap[langCode] || langCode.toUpperCase();
-                    baseRow[`${langDescription} (${langCode.toUpperCase()})`] = translation;
-                }
-
-                if ('successful_languages' in result) {
-                    baseRow['Successful Languages'] = `${result.successful_languages}/${result.total_languages}`;
-                }
-
-                baseRow['Errors'] = Array.isArray(result.errors) && result.errors.length > 0
-                    ? result.errors.join('; ')
-                    : '';
-            } else if (result.success && result.translated_text) {
-                // Single language (backward compatibility)
-                baseRow['Translation'] = result.translated_text;
-                baseRow['Detected Language'] = result.detected_language || '';
-                baseRow['Errors'] = '';
-            } else {
-                // Failed translation
-                baseRow['Translation'] = '';
-                baseRow['Errors'] = !result.success ? (result.error || '') : '';
-            }
-            return baseRow;
+        // Keep the header and source columns visible while scrolling across languages,
+        // and wrap long texts so translations side by side stay readable
+        worksheet.views = [{ state: 'frozen', xSplit: sheet.frozenColumns, ySplit: 1 }];
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) row.alignment = { wrapText: true, vertical: 'top' };
         });
 
-        const workbook = new ExcelJS.Workbook();
-        addRecordsSheet(workbook, 'Translation Results', records);
         await sendWorkbook(res, workbook, `translation_results_${timestampForFilename()}.xlsx`);
     } catch (e) {
         res.status(500).json({ error: e.message });
