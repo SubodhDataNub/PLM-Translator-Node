@@ -273,25 +273,6 @@
                                     </div>
                                 </div>
 
-                                {% if label_types.length %}
-                                <!-- Label terminology (Train_Data/) -->
-                                <div class="card border-0 shadow-sm mb-4">
-                                    <div class="card-body">
-                                        <label for="labelType" class="form-label fw-bold fs-6 mb-3">
-                                            <i class="fas fa-book me-2 text-primary"></i>Label terminology
-                                        </label>
-                                        <select class="form-select" id="labelType" name="label_type">
-                                            {% for type in label_types %}
-                                            <option value="{{ type.key }}"{% if type.key == default_label_type %} selected{% endif %}>{{ type.label }}</option>
-                                            {% endfor %}
-                                        </select>
-                                        <div class="form-text mt-2">
-                                            <small class="text-muted">Applies to every row in the file. Official EU wording covers Danish, Dutch, French, Italian, Portuguese (Portugal) and Spanish.</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endif %}
-
                                 <!-- Instructions -->
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-header bg-gradient bg-info text-white border-0">
@@ -545,12 +526,6 @@
             // Add tested_by field
             formData.append('tested_by', testedByInput.value.trim());
 
-            // Label terminology applied to every row
-            const labelTypeSelect = document.getElementById('labelType');
-            if (labelTypeSelect) {
-                formData.append('label_type', labelTypeSelect.value);
-            }
-
             try {
                 // Submit the translation request - this will now wait for completion
                 const response = await fetch('/api/mass-translate', {
@@ -619,6 +594,19 @@
                 Click the download button above to get your Excel file, or <a href="/test-results" class="alert-link">view all results in Test Results page</a>.
             `;
             resultsContent.appendChild(infoMsg);
+
+            // Label type detected for the rows (label terminology)
+            const labelTypes = data.statistics.label_types || {};
+            const labelTypeNames = { food: 'food', cosmetic: 'cosmetic or detergent', general: 'general' };
+            const labelTypeParts = Object.entries(labelTypes)
+                .filter(([, count]) => count > 0)
+                .map(([type, count]) => `${count} ${labelTypeNames[type] || type}`);
+            if (labelTypeParts.length) {
+                const typeMsg = document.createElement('div');
+                typeMsg.className = 'small text-muted mb-3';
+                typeMsg.textContent = `Label type detected per row: ${labelTypeParts.join(', ')}`;
+                resultsContent.appendChild(typeMsg);
+            }
 
             // Show results section with download button
             document.getElementById('resultsSection').classList.remove('d-none');

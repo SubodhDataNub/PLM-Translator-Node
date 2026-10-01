@@ -77,6 +77,7 @@ async function processBatchTranslation(table, targetLanguages, totalRows, tested
     const languages = await translatorService.getSupportedLanguages();
 
     let successfulTranslations = 0;
+    const labelTypeCounts = {};
 
     // Process each language
     for (const targetLanguage of targetLanguages) {
@@ -86,6 +87,15 @@ async function processBatchTranslation(table, targetLanguages, totalRows, tested
         const batchResults = await translatorService.translateBatch(
             texts, targetLanguage, config.massTranslateBatchSize, { labelType }
         );
+
+        // Count the label type applied to each row (the same for every language, so count once)
+        if (targetLanguage === targetLanguages[0]) {
+            for (const result of batchResults) {
+                if (result.label_type) {
+                    labelTypeCounts[result.label_type] = (labelTypeCounts[result.label_type] || 0) + 1;
+                }
+            }
+        }
 
         // Prepare batch for database (including both successful and failed)
         const dbBatch = batchResults.map((result, idx) => {
@@ -137,7 +147,8 @@ async function processBatchTranslation(table, targetLanguages, totalRows, tested
             failed: totalTranslations - successfulTranslations,
             success_rate: totalRows > 0 ? round((successfulTranslations / totalTranslations) * 100, 2) : 0,
             languages_count: targetLanguages.length,
-            target_languages: targetLanguages
+            target_languages: targetLanguages,
+            label_types: labelTypeCounts
         }
     };
 }

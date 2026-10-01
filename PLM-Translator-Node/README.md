@@ -90,16 +90,17 @@ Until credentials are set, the pages still load with a built-in fallback languag
 
 Before a text is sent to Google, these spans are swapped for placeholders such as `[[1]]` and put back afterwards. A text that is only official wording or codes is answered without calling Google. If the translator ever damages a placeholder, that text is translated again without terminology.
 
-Testers choose the **label terminology** on both translation pages (API field `label_type`):
+Which lists apply depends on the **label type**, which the app detects from each text by itself (testers choose nothing):
 
-| `label_type` | Applies |
-|---|---|
-| `general` (default) | Statements, codes and units |
-| `food` | General + official food additive and allergen names |
-| `cosmetic` | General + INCI and fragrance-allergen names kept as written |
-| `off` | Nothing: plain machine translation, for comparison |
+| Label type | Detected from | Applies |
+|---|---|---|
+| `food` | E-numbers, food additive and allergen names, words such as *cooked*, *serve*, *kcal*, *best before* | Statements, codes and units, plus official food additive and allergen names |
+| `cosmetic` (cosmetic or detergent) | Capitalised INCI and fragrance-allergen names, CI colour codes, words such as *skin*, *hair*, *shampoo*, *laundry* | Statements, codes and units, plus INCI and fragrance-allergen names kept as written |
+| `general` | No clear evidence either way | Statements, codes and units |
 
-Food and cosmetic lists are never combined, because many INCI names are also food words (CITRIC ACID, MILK, WATER). INCI names are only protected when written with capitals, as on ingredient lists; everyday words such as WATER only in full capitals. Statements with `…` fill-ins (25) cannot be matched literally and are skipped; one-word allergen names (milk, eggs) are left to the translator. If `Train_Data/` is missing, the app runs without terminology and hides the setting.
+Detection only picks food or cosmetic on clear evidence. Names on both lists, everyday words such as WATER, and words inside official statements (which appear on every kind of label) do not count. The single-translation page shows the detected type under the result; mass translation reports how many rows got each type. The API field `label_type` (`auto` by default, or `general`, `food`, `cosmetic`, `off`) can force a type; `off` gives plain machine translation for comparison.
+
+Food and cosmetic lists are never combined, because many INCI names are also food words (CITRIC ACID, MILK, WATER). INCI names are only protected when written with capitals, as on ingredient lists; everyday words such as WATER only in full capitals. Statements with `…` fill-ins (25) cannot be matched literally and are skipped; one-word allergen names (milk, eggs) are left to the translator. If `Train_Data/` is missing, the app runs without terminology.
 
 ## Configuration reference
 

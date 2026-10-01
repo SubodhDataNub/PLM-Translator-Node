@@ -173,7 +173,8 @@ class TranslatorService {
                 translated_text: result.translatedText,
                 source_language: result.detectedLanguage || 'auto',
                 target_language: targetLanguage,
-                label_type: normalizeLabelType(labelType),
+                label_type: result.labelType || normalizeLabelType(labelType),
+                label_type_detected: normalizeLabelType(labelType) === 'auto',
                 terminology: result.terminology || null
             };
         } catch (e) {
@@ -245,6 +246,7 @@ class TranslatorService {
                                 source_language: translation.detectedLanguage || 'auto',
                                 target_language: targetLanguage,
                                 original_text: text,
+                                label_type: translation.labelType || null,
                                 terminology: translation.terminology || null
                             });
                         } else {
@@ -322,7 +324,9 @@ class TranslatorService {
      * @returns {Promise<{translatedText: string, detectedLanguage: string|null, terminology?: object}[]>}
      */
     async _requestTranslations(texts, targetLanguage, timeoutMs, { labelType } = {}) {
-        const prepared = texts.map((text) => terminology.protect(text, targetLanguage, labelType));
+        // 'auto' becomes general, food or cosmetic per text
+        const labelTypes = texts.map((text) => terminology.resolveLabelType(text, labelType));
+        const prepared = texts.map((text, idx) => terminology.protect(text, targetLanguage, labelTypes[idx]));
         const results = new Array(texts.length);
         const pending = [];
 
@@ -337,7 +341,7 @@ class TranslatorService {
                 pending.push(idx);
             }
         });
-        if (!pending.length) return results;
+        if (!pending.length) return this._withLabelTypes(results, labelTypes);
 
         const translations = await this._sendTranslations(
             pending.map((idx) => (prepared[idx] ? prepared[idx].text : texts[idx])),
@@ -368,7 +372,12 @@ class TranslatorService {
                 results[idx] = plain[k] && { ...plain[k], terminology: { official: [], kept: [], skipped: true } };
             });
         }
-        return results;
+        return this._withLabelTypes(results, labelTypes);
+    }
+
+    /** Record on each result which label type was applied */
+    _withLabelTypes(results, labelTypes) {
+        return results.map((result, idx) => result && { ...result, labelType: labelTypes[idx] });
     }
 
     /**

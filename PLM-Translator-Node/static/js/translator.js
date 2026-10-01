@@ -23,7 +23,6 @@ class DNTranslator {
         this.languageDropdown = document.querySelector('.language-dropdown');
         this.languageOptions = document.getElementById('languageOptions');
         this.dropdownArrow = document.querySelector('.language-selector .fa-chevron-down');
-        this.labelTypeSelect = document.getElementById('labelType');
         this.terminologyNote = document.getElementById('terminologyNote');
 
         // Test result elements
@@ -579,8 +578,7 @@ class DNTranslator {
                 },
                 body: JSON.stringify({
                     text: sourceText,
-                    target_language: targetLanguage,
-                    label_type: this.labelTypeSelect ? this.labelTypeSelect.value : undefined
+                    target_language: targetLanguage
                 })
             });
 
@@ -597,7 +595,7 @@ class DNTranslator {
                 
                 // Display translation result
                 this.translatedTextArea.value = data.translated_text;
-                this.showTerminologyNote(data.terminology);
+                this.showTerminologyNote(data.terminology, data.label_type);
                 this.copyBtn.disabled = false;
                 
                 // Update session statistics
@@ -688,10 +686,17 @@ class DNTranslator {
         }
     }
 
-    /** Show which official wording and protected terms the server applied (nothing for null) */
-    showTerminologyNote(terminology) {
+    /**
+     * Show the label type the server detected and the official wording and protected terms it
+     * applied (nothing for null)
+     */
+    showTerminologyNote(terminology, labelType) {
         if (!this.terminologyNote) return;
+        const labelTypeNames = { general: 'General', food: 'Food', cosmetic: 'Cosmetic or detergent' };
         const parts = [];
+        if (labelTypeNames[labelType]) {
+            parts.push(`Label type: ${labelTypeNames[labelType]}`);
+        }
         if (terminology && terminology.skipped) {
             parts.push('Label terminology could not be applied to this text, so it was translated without it.');
         } else if (terminology) {

@@ -21,14 +21,23 @@ const DATA_DIR = path.join(config.ROOT_DIR, 'Train_Data');
  * Which term lists apply to each label type.
  * INCI names overlap with food words (CITRIC ACID, MILK, WATER) and food additive names are
  * translated on food labels, so the food and cosmetic lists are never used together.
+ * 'auto' (the default) picks general, food or cosmetic from the text itself; the others can be
+ * forced through the API's label_type field.
  */
 const LABEL_TYPES = [
-    { key: 'general', label: 'General: hazard statements, codes and units', sets: ['statements', 'codes'] },
-    { key: 'food', label: 'Food: also official additive and allergen names', sets: ['statements', 'codes', 'food'] },
-    { key: 'cosmetic', label: 'Cosmetic or detergent: also keep INCI names', sets: ['statements', 'codes', 'cosmetic'] },
-    { key: 'off', label: 'Off: plain machine translation', sets: [] }
+    { key: 'auto', sets: null },
+    { key: 'general', sets: ['statements', 'codes'] },
+    { key: 'food', sets: ['statements', 'codes', 'food'] },
+    { key: 'cosmetic', sets: ['statements', 'codes', 'cosmetic'] },
+    { key: 'off', sets: [] }
 ];
-const DEFAULT_LABEL_TYPE = 'general';
+const DEFAULT_LABEL_TYPE = 'auto';
+
+// Signs of a food label, or of a cosmetic or detergent label, in English source text
+const FOOD_CUES = /\b(?:cook(?:ed|ing)?|serv(?:e|ed|ing)|recipe|sauce|meal|bak(?:e|ed|ing)|fry|fried|boil(?:ed|ing)?|microwave|oven|eat|delicious|tast(?:e|y)|flavou?r(?:s|ed|ing)?|nutrition(?:al)?|kcal|kj|saturates|carbohydrates?|protein|fibre|best before|use by|may contain|traces of|allergens?|gluten|lactose|vegan|vegetarian|meat|fish|poultry|vegetables?|fruits?|snack|beverage)\b/gi;
+const COSMETIC_CUES = /\b(?:skin|hair|scalp|face|facial|lips?|nails?|shampoo|conditioner|lotion|serum|soap|shower|deodorant|antiperspirant|toothpaste|mouthwash|perfume|parfum|fragrance|cosmetics?|dermatologically|moisturi[sz](?:e|er|ing)|apply|massage|lather|detergent|laundry|washing machine|dishwasher|fabrics?|stains?|bleach|cleaner|cleaning|surfaces?|inci|aqua|spf)\b/gi;
+const E_NUMBER = /\bE ?\d{3,4}[a-z]?\b/g;          // food additive codes
+const COLOUR_INDEX = /\bCI ?\d{5}\b/g;              // cosmetic colourant codes, e.g. CI 77891
 
 // INCI names that are also everyday words (from the coverage report): only protected in capitals
 const EVERYDAY_INCI = new Set([
@@ -381,7 +390,8 @@ class Terminology {
      *   null when no terminology applies. `resolved` means nothing is left to translate.
      */
     protect(text, targetLanguage, labelType = DEFAULT_LABEL_TYPE) {
-        const type = LABEL_TYPES.find((t) => t.key === normalizeLabelType(labelType));
+        const key = this.resolveLabelType(text, labelType);
+        const type = LABEL_TYPES.find((t) => t.key === key);
         if (!type.sets.length || !text || !this.load()) return null;
         // Text that already contains placeholder-like brackets would be ambiguous after translation
         if (/[[［]{2}/.test(text)) return null;
@@ -426,15 +436,67 @@ class Terminology {
         };
     }
 
+    /** The label type to apply: the one asked for, or for 'auto' the one detected in the text */
+    resolveLabelType(text, labelType = DEFAULT_LABEL_TYPE) {
+        const key = normalizeLabelType(labelType);
+        return key === 'auto' ? this.detectLabelType(text) : key;
+    }
+
+    /**
+     * Guess whether a text comes from a food label, a cosmetic or detergent label, or neither.
+     * Evidence: E-numbers and food additive/allergen names (food), capitalised INCI or fragrance
+     * names and CI colour codes (cosmetic), plus typical words for each. Names that are on both
+     * lists, everyday words such as WATER, and words inside official statements (which appear on
+     * every kind of label) do not count. Without clear evidence the answer is 'general', which is
+     * safe for any label.
+     */
+    detectLabelType(text) {
+        if (!text || !this.load()) return 'general';
+
+        // Blank out official statements before looking for evidence
+        let rest = text;
+        const statements = this._scan(['statements'], tokenize(text), text, () => true);
+        for (const span of statements.reverse()) {
+            rest = `${rest.slice(0, span.start)} ${rest.slice(span.end)}`;
+        }
+        const tokens = tokenize(rest);
+        const names = (sets, accept) => new Set(this._scan(sets, tokens, rest, accept).map((s) => s.source.toLowerCase()));
+        const foodNames = names(['food'], () => true);
+        const cosmeticNames = names(['cosmetic'], (entry, source) => this._applies(entry, source));
+        const distinct = (pattern) => new Set((rest.match(pattern) || []).map((m) => m.toLowerCase().replace(/\s+/g, ''))).size;
+        const onlyIn = (own, other, skip = new Set()) => [...own].filter((n) => !other.has(n) && !skip.has(n)).length;
+
+        const food = 2 * distinct(E_NUMBER) + 2 * onlyIn(foodNames, cosmeticNames)
+            + Math.min(3, distinct(FOOD_CUES));
+        const cosmetic = 2 * distinct(COLOUR_INDEX) + 2 * onlyIn(cosmeticNames, foodNames, EVERYDAY_INCI)
+            + Math.min(3, distinct(COSMETIC_CUES));
+
+        if (food >= 2 && food > cosmetic) return 'food';
+        if (cosmetic >= 2 && cosmetic > food) return 'cosmetic';
+        return 'general';
+    }
+
     /** Find official wording and protected names, longest match first */
     _phraseSpans(text, lang, sets) {
-        const tries = ['statements', 'food', 'cosmetic']
-            .filter((name) => sets.includes(name) && this.tries[name])
-            .map((name) => this.tries[name]);
-        if (!tries.length) return [];
+        const lists = ['statements', 'food', 'cosmetic'].filter((name) => sets.includes(name));
+        return this._scan(lists, tokenize(text), text, (entry, source) => this._applies(entry, source, lang))
+            .map(({ start, end, entry, source }) => ({
+                start,
+                end,
+                kind: entry.kind,
+                label: entry.kind === 'official' ? entry.label : source,
+                output: entry.kind === 'official'
+                    ? matchCase(source, stripTrailing(entry.targets[lang], entry.trailing), lang)
+                    : source
+            }));
+    }
 
-        const tokens = tokenize(text);
+    /** Walk the given term lists over the tokens; at each position keep the longest accepted match */
+    _scan(lists, tokens, text, accept) {
+        const tries = lists.map((name) => this.tries[name]).filter(Boolean);
         const spans = [];
+        if (!tries.length) return spans;
+
         let i = 0;
         while (i < tokens.length) {
             let best = null;
@@ -445,7 +507,7 @@ class Terminology {
                     if (!node) break;
                     if (!node.entries.length || (best && j <= best.last)) continue;
                     const source = text.slice(tokens[i].start, tokens[j].end);
-                    const entry = node.entries.find((e) => this._applies(e, source, lang));
+                    const entry = node.entries.find((e) => accept(e, source));
                     if (entry) best = { last: j, entry, source };
                 }
             }
@@ -454,17 +516,7 @@ class Terminology {
                 i++;
                 continue;
             }
-            const { entry, source } = best;
-            const output = entry.kind === 'official'
-                ? matchCase(source, stripTrailing(entry.targets[lang], entry.trailing), lang)
-                : source;
-            spans.push({
-                start: tokens[i].start,
-                end: tokens[best.last].end,
-                kind: entry.kind,
-                label: entry.kind === 'official' ? entry.label : source,
-                output
-            });
+            spans.push({ start: tokens[i].start, end: tokens[best.last].end, entry: best.entry, source: best.source });
             i = best.last + 1;
         }
         return spans;
