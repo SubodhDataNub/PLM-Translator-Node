@@ -23,7 +23,9 @@ class DNTranslator {
         this.languageDropdown = document.querySelector('.language-dropdown');
         this.languageOptions = document.getElementById('languageOptions');
         this.dropdownArrow = document.querySelector('.language-selector .fa-chevron-down');
-        
+        this.labelTypeSelect = document.getElementById('labelType');
+        this.terminologyNote = document.getElementById('terminologyNote');
+
         // Test result elements
         this.outcomeSelect = document.getElementById('outcome');
         this.accuracyInput = document.getElementById('accuracy');
@@ -567,6 +569,7 @@ class DNTranslator {
 
         // Show loading state
         this.setLoadingState(true);
+        this.showTerminologyNote(null);
 
         try {
             const response = await fetch('/api/translate', {
@@ -576,7 +579,8 @@ class DNTranslator {
                 },
                 body: JSON.stringify({
                     text: sourceText,
-                    target_language: targetLanguage
+                    target_language: targetLanguage,
+                    label_type: this.labelTypeSelect ? this.labelTypeSelect.value : undefined
                 })
             });
 
@@ -593,6 +597,7 @@ class DNTranslator {
                 
                 // Display translation result
                 this.translatedTextArea.value = data.translated_text;
+                this.showTerminologyNote(data.terminology);
                 this.copyBtn.disabled = false;
                 
                 // Update session statistics
@@ -683,6 +688,24 @@ class DNTranslator {
         }
     }
 
+    /** Show which official wording and protected terms the server applied (nothing for null) */
+    showTerminologyNote(terminology) {
+        if (!this.terminologyNote) return;
+        const parts = [];
+        if (terminology && terminology.skipped) {
+            parts.push('Label terminology could not be applied to this text, so it was translated without it.');
+        } else if (terminology) {
+            if (terminology.official && terminology.official.length) {
+                parts.push(`Official wording: ${terminology.official.join(', ')}`);
+            }
+            if (terminology.kept && terminology.kept.length) {
+                parts.push(`Kept as written: ${terminology.kept.join(', ')}`);
+            }
+        }
+        this.terminologyNote.textContent = parts.join(' · ');
+        this.terminologyNote.hidden = parts.length === 0;
+    }
+
     clearAll() {
         // Show confirmation dialog
         if (this.sourceTextArea.value.trim() || this.translatedTextArea.value.trim()) {
@@ -694,6 +717,7 @@ class DNTranslator {
         // Clear all fields
         this.sourceTextArea.value = '';
         this.translatedTextArea.value = '';
+        this.showTerminologyNote(null);
         this.targetLanguageSelect.value = '';
         
         // Clear merged search input
@@ -1258,14 +1282,16 @@ document.addEventListener('DOMContentLoaded', () => {
     translator = new DNTranslator();
 });
 
-// Add some utility functions for better UX
+// Warn before leaving only if a quality assessment was filled in but not saved.
+// Translations themselves are quick to redo, so they do not trigger the warning.
+// "Tested By" is ignored because it is kept after a successful save.
 window.addEventListener('beforeunload', (e) => {
-    const sourceText = document.getElementById('sourceText')?.value?.trim();
-    const translatedText = document.getElementById('translatedText')?.value?.trim();
-    
-    if (sourceText || translatedText) {
+    const hasUnsavedAssessment = ['outcome', 'accuracy', 'observation']
+        .some((id) => document.getElementById(id)?.value?.trim());
+
+    if (hasUnsavedAssessment) {
         e.preventDefault();
-        e.returnValue = 'You have unsaved translations. Are you sure you want to leave?';
+        e.returnValue = 'You have an unsaved test result. Are you sure you want to leave?';
     }
 });
 

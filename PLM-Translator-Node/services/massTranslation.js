@@ -71,7 +71,7 @@ async function saveRecords(records) {
 }
 
 /** Process translation using batch API calls for maximum speed */
-async function processBatchTranslation(table, targetLanguages, totalRows, testedBy, sessionId) {
+async function processBatchTranslation(table, targetLanguages, totalRows, testedBy, sessionId, { labelType } = {}) {
     const { textsData } = collectTexts(table);
     const texts = textsData.map((item) => item.text);
     const languages = await translatorService.getSupportedLanguages();
@@ -83,7 +83,9 @@ async function processBatchTranslation(table, targetLanguages, totalRows, tested
         const targetLanguageLabel = formatTargetLanguage(targetLanguage, languages);
 
         // Batch translate all texts for this language
-        const batchResults = await translatorService.translateBatch(texts, targetLanguage, config.massTranslateBatchSize);
+        const batchResults = await translatorService.translateBatch(
+            texts, targetLanguage, config.massTranslateBatchSize, { labelType }
+        );
 
         // Prepare batch for database (including both successful and failed)
         const dbBatch = batchResults.map((result, idx) => {
@@ -128,6 +130,7 @@ async function processBatchTranslation(table, targetLanguages, totalRows, tested
         success: true,
         message: `Mass translation completed: ${successfulTranslations} successful`,
         session_id: sessionId,
+        label_type: labelType,
         statistics: {
             total_rows: totalRows,
             successful: successfulTranslations,

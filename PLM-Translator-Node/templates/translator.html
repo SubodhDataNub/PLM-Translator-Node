@@ -146,6 +146,20 @@
                                         <button type="button" class="btn btn-outline-primary btn-sm rounded-pill quick-lang-btn" data-lang="ko">Korean</button>
                                     </div>
                                 </div>
+
+                                {% if label_types.length %}
+                                <!-- Label terminology (Train_Data/) -->
+                                <div class="mt-3">
+                                    <label for="labelType" class="form-label fw-semibold small text-muted">Label terminology:</label>
+                                    <select class="form-select shadow-sm" id="labelType" name="labelType"
+                                            style="border: 2px solid #e9ecef; border-radius: 12px;">
+                                        {% for type in label_types %}
+                                        <option value="{{ type.key }}"{% if type.key == default_label_type %} selected{% endif %}>{{ type.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Official EU wording for hazard and precautionary statements in Danish, Dutch, French, Italian, Portuguese (Portugal) and Spanish. Codes, units and protected names stay as written.</div>
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
                                 <div class="w-100">
@@ -173,6 +187,7 @@
                             <textarea class="form-control shadow-sm" id="translatedText" name="translatedText" rows="5" readonly
                                 placeholder="Your translation will appear here..."
                                 style="border: 2px solid #e9ecef; border-radius: 12px; font-size: 1.05rem; line-height: 1.6; background-color: #f8f9fa; min-height: 120px;"></textarea>
+                            <div id="terminologyNote" class="small text-muted mt-2" hidden></div>
                         </div>
 
                         <!-- Action Buttons -->

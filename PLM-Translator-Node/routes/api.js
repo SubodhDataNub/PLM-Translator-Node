@@ -12,6 +12,7 @@ const models = require('../models');
 const { translatorService } = require('../services/translator');
 const { largeScaleTranslator } = require('../services/largeScaleTranslator');
 const { processBatchTranslation } = require('../services/massTranslation');
+const { normalizeLabelType } = require('../services/terminology');
 const { cache } = require('../services/cache');
 const { ExcelJS, readSpreadsheet, addRecordsSheet, sendWorkbook } = require('../services/excel');
 const {
@@ -95,9 +96,10 @@ router.post('/translate', async (req, res) => {
 
     const sourceText = String(data.text).trim();
     const targetLanguage = String(data.target_language).trim();
+    const labelType = normalizeLabelType(data.label_type);
 
     // Perform translation
-    const result = await translatorService.translateText(sourceText, targetLanguage);
+    const result = await translatorService.translateText(sourceText, targetLanguage, { labelType });
     res.status(result.success ? 200 : 500).json(result);
 });
 
@@ -365,6 +367,7 @@ router.post('/mass-translate', uploadFile, async (req, res) => {
         const body = req.body || {};
         const targetLanguagesJson = body.target_languages;
         const testedBy = body.tested_by;
+        const labelType = normalizeLabelType(body.label_type);
 
         if (!file.originalname) {
             return res.status(400).json({ success: false, error: 'No file selected' });
@@ -409,7 +412,9 @@ router.post('/mass-translate', uploadFile, async (req, res) => {
         const sessionId = `mass_translation_${timestampForFilename()}_${crypto.randomBytes(4).toString('hex')}`;
 
         // Process with batch translation
-        const result = await processBatchTranslation(table, targetLanguages, totalRows, String(testedBy).trim(), sessionId);
+        const result = await processBatchTranslation(
+            table, targetLanguages, totalRows, String(testedBy).trim(), sessionId, { labelType }
+        );
         res.json(result);
     } catch (e) {
         res.status(500).json({ success: false, error: `Server error: ${e.message}` });

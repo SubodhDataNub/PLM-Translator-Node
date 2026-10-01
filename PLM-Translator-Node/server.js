@@ -8,6 +8,7 @@ const config = require('./config');
 const { createApp } = require('./app');
 const { closeDb } = require('./models');
 const { translatorService } = require('./services/translator');
+const { terminology } = require('./services/terminology');
 
 // Long-running mass translations: allow up to 30 minutes per request (like the gunicorn timeout)
 const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
@@ -29,6 +30,8 @@ async function main() {
     const server = app.listen(config.port, () => {
         console.log(`DN Translator running on http://localhost:${config.port} (${config.environment})`);
         console.log(`Translation provider: ${describeTranslator()}`);
+        // Read the label terminology now rather than on the first translation
+        setImmediate(() => terminology.load());
     });
     server.requestTimeout = REQUEST_TIMEOUT_MS;
 

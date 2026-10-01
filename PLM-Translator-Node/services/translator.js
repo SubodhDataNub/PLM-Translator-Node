@@ -10,6 +10,7 @@
 'use strict';
 
 const { GoogleTranslateConfig } = require('../config');
+const { terminology, normalizeLabelType } = require('./terminology');
 
 const V2_BASE_URL = 'https://translation.googleapis.com/language/translate/v2';
 
@@ -149,8 +150,12 @@ class TranslatorService {
     // Translation
     // ------------------------------------------------------------------
 
-    /** Translate text using Google Cloud Translation API */
-    async translateText(text, targetLanguage) {
+    /**
+     * Translate text using Google Cloud Translation API.
+     * @param {object} [options]
+     * @param {string} [options.labelType] - Which label terminology to apply (see services/terminology.js)
+     */
+    async translateText(text, targetLanguage, { labelType } = {}) {
         if (!this.isConfigured()) {
             return {
                 success: false,
@@ -159,7 +164,7 @@ class TranslatorService {
         }
 
         try {
-            const [result] = await this._requestTranslations([text], targetLanguage, 30000);
+            const [result] = await this._requestTranslations([text], targetLanguage, 30000, { labelType });
             if (!result || typeof result.translatedText !== 'string') {
                 throw new Error('Invalid translation response');
             }
@@ -167,7 +172,9 @@ class TranslatorService {
                 success: true,
                 translated_text: result.translatedText,
                 source_language: result.detectedLanguage || 'auto',
-                target_language: targetLanguage
+                target_language: targetLanguage,
+                label_type: normalizeLabelType(labelType),
+                terminology: result.terminology || null
             };
         } catch (e) {
             if (e.timeout) {
@@ -190,9 +197,11 @@ class TranslatorService {
      * @param {string[]} texts - List of strings to translate
      * @param {string} targetLanguage - Target language code
      * @param {number} maxBatchSize - Maximum texts per API call
+     * @param {object} [options]
+     * @param {string} [options.labelType] - Which label terminology to apply (see services/terminology.js)
      * @returns {Promise<object[]>} List of translation results (same order as texts)
      */
-    async translateBatch(texts, targetLanguage, maxBatchSize = 50) {
+    async translateBatch(texts, targetLanguage, maxBatchSize = 50, { labelType } = {}) {
         if (!this.isConfigured()) {
             return texts.map((text) => ({
                 success: false,
@@ -226,7 +235,7 @@ class TranslatorService {
             let retryCount = 0;
             while (true) {
                 try {
-                    const translations = await this._requestTranslations(batch, targetLanguage, 60000);
+                    const translations = await this._requestTranslations(batch, targetLanguage, 60000, { labelType });
                     batch.forEach((text, idx) => {
                         const translation = translations[idx];
                         if (translation && typeof translation.translatedText === 'string') {
@@ -235,7 +244,8 @@ class TranslatorService {
                                 translated_text: translation.translatedText,
                                 source_language: translation.detectedLanguage || 'auto',
                                 target_language: targetLanguage,
-                                original_text: text
+                                original_text: text,
+                                terminology: translation.terminology || null
                             });
                         } else {
                             allResults.push({
@@ -304,10 +314,68 @@ class TranslatorService {
     }
 
     /**
+     * Translate texts with label terminology applied.
+     *
+     * Official wording and protected terms are swapped for placeholders before the request and put
+     * back afterwards. Texts that are only official wording or codes never reach Google. If the
+     * translator damages a placeholder, that text is translated again without terminology.
+     * @returns {Promise<{translatedText: string, detectedLanguage: string|null, terminology?: object}[]>}
+     */
+    async _requestTranslations(texts, targetLanguage, timeoutMs, { labelType } = {}) {
+        const prepared = texts.map((text) => terminology.protect(text, targetLanguage, labelType));
+        const results = new Array(texts.length);
+        const pending = [];
+
+        prepared.forEach((p, idx) => {
+            if (p && p.resolved) {
+                results[idx] = {
+                    translatedText: terminology.restore(p.text, p.slots),
+                    detectedLanguage: p.summary.official.length ? 'en' : null,
+                    terminology: p.summary
+                };
+            } else {
+                pending.push(idx);
+            }
+        });
+        if (!pending.length) return results;
+
+        const translations = await this._sendTranslations(
+            pending.map((idx) => (prepared[idx] ? prepared[idx].text : texts[idx])),
+            targetLanguage,
+            timeoutMs
+        );
+
+        const damaged = [];
+        pending.forEach((idx, k) => {
+            const translation = translations[k];
+            const p = prepared[idx];
+            if (!p || !translation || typeof translation.translatedText !== 'string') {
+                results[idx] = translation;
+                return;
+            }
+            const restored = terminology.restore(translation.translatedText, p.slots);
+            if (restored === null) {
+                damaged.push(idx);
+            } else {
+                results[idx] = { ...translation, translatedText: restored, terminology: p.summary };
+            }
+        });
+
+        if (damaged.length) {
+            console.warn(`Translator changed terminology placeholders in ${damaged.length} text(s) for '${targetLanguage}' - translating them again without terminology`);
+            const plain = await this._sendTranslations(damaged.map((idx) => texts[idx]), targetLanguage, timeoutMs);
+            damaged.forEach((idx, k) => {
+                results[idx] = plain[k] && { ...plain[k], terminology: { official: [], kept: [], skipped: true } };
+            });
+        }
+        return results;
+    }
+
+    /**
      * Send one translate request.
      * @returns {Promise<{translatedText: string, detectedLanguage: string|null}[]>}
      */
-    async _requestTranslations(texts, targetLanguage, timeoutMs) {
+    async _sendTranslations(texts, targetLanguage, timeoutMs) {
         return this.edition === 'advanced'
             ? this._translateV3(texts, targetLanguage, timeoutMs)
             : this._translateV2(texts, targetLanguage, timeoutMs);

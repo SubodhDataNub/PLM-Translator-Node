@@ -7,8 +7,17 @@
 const express = require('express');
 const models = require('../models');
 const { translatorService } = require('../services/translator');
+const { terminology, LABEL_TYPES, DEFAULT_LABEL_TYPE } = require('../services/terminology');
 
 const router = express.Router();
+
+/** Label terminology choices for the translation pages; hidden when Train_Data/ is missing */
+function labelTypeOptions() {
+    return {
+        label_types: terminology.load() ? LABEL_TYPES.map(({ key, label }) => ({ key, label })) : [],
+        default_label_type: DEFAULT_LABEL_TYPE
+    };
+}
 
 /** Parse an integer query parameter (Flask's request.args.get(name, default, type=int)) */
 function intParam(value, fallback) {
@@ -57,13 +66,13 @@ const SORT_OPTIONS = {
 /** Main translator page */
 router.get('/', async (req, res) => {
     const languages = await translatorService.getSupportedLanguages();
-    res.render('translator.html', { languages });
+    res.render('translator.html', { languages, ...labelTypeOptions() });
 });
 
 /** Mass translation page with Excel upload */
 router.get('/mass-translation', async (req, res) => {
     const languages = await translatorService.getSupportedLanguages();
-    res.render('mass_translation.html', { languages });
+    res.render('mass_translation.html', { languages, ...labelTypeOptions() });
 });
 
 /** View test results with pagination and server-side filtering/sorting for performance */
