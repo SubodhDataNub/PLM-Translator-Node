@@ -96,8 +96,21 @@ function parseAdoConnectionString(connStr) {
 }
 
 /**
+ * Knex config for PostgreSQL. The URL goes to the pg driver unchanged, so it can name a Unix
+ * socket directory, as Cloud SQL uses on Cloud Run:
+ *   postgres://user:password@/database?host=/cloudsql/PROJECT:REGION:INSTANCE
+ */
+function postgresConfig(connectionString) {
+    return {
+        client: 'pg',
+        connection: { connectionString },
+        pool: { min: 0, max: 5 }
+    };
+}
+
+/**
  * Parse DATABASE_URL. Accepts SQLAlchemy-style URLs used by the Python version
- * (sqlite:///path, mssql+pyodbc://user:pass@host/db) as well as ADO.NET connection strings.
+ * (sqlite:///path, mssql+pyodbc://user:pass@host/db), postgres:// URLs, and ADO.NET connection strings.
  */
 function parseDatabaseUrl(databaseUrl) {
     if (/^\s*(server|data source)\s*=/i.test(databaseUrl)) {
@@ -130,7 +143,11 @@ function parseDatabaseUrl(databaseUrl) {
         });
     }
 
-    throw new Error(`Unsupported DATABASE_URL scheme: ${databaseUrl.split(':')[0]}. Use sqlite or mssql.`);
+    if (/^postgres(ql)?:\/\//i.test(databaseUrl)) {
+        return postgresConfig(databaseUrl);
+    }
+
+    throw new Error(`Unsupported DATABASE_URL scheme: ${databaseUrl.split(':')[0]}. Use sqlite, mssql or postgres.`);
 }
 
 function getAzureSqlConfig() {
@@ -145,7 +162,7 @@ function getAzureSqlConfig() {
     return null;
 }
 
-/** Get database configuration for production (Azure SQL Database) */
+/** Get database configuration for production (Azure SQL Database, or any DATABASE_URL such as Cloud SQL) */
 function getProductionDatabaseConfig() {
     // Check if running on Azure App Service with a connection string configured
     if (process.env.WEBSITE_SITE_NAME && process.env.SQLAZURECONNSTR_DefaultConnection) {
@@ -164,7 +181,7 @@ function getProductionDatabaseConfig() {
     }
 
     throw new Error(
-        'Azure SQL Database configuration not found. Please set the required environment variables: ' +
+        'Production database configuration not found. Set DATABASE_URL, or the Azure SQL variables ' +
         'AZURE_SQL_SERVER, AZURE_SQL_DATABASE, AZURE_SQL_USERNAME, AZURE_SQL_PASSWORD'
     );
 }

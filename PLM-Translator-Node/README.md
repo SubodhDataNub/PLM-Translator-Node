@@ -81,6 +81,26 @@ Translation provider: Google Cloud Translation Advanced (v3) - project your-proj
 
 Until credentials are set, the pages still load with a built-in fallback language list, and translate requests return a "not configured" error.
 
+## Label terminology
+
+`Train_Data/` holds a terminology database collected from official EU legal texts (see `Train_Data/coverage_report.md`). `services/terminology.js` loads it at startup and applies it to every translation, single or mass:
+
+- **Official wording.** CLP hazard and precautionary statements (and, for food labels, additive and allergen names) are replaced by the official text for the target language. The data covers Danish, Dutch, French, Italian, Portuguese (Portugal) and Spanish. Other languages are translated normally.
+- **Kept as written.** E-numbers, H/EUH/P codes, CAS and EC numbers, unit symbols after a number (`g`, `mL`, `°C`…), and for cosmetic labels INCI and fragrance-allergen names.
+
+Before a text is sent to Google, these spans are swapped for placeholders such as `[[1]]` and put back afterwards. A text that is only official wording or codes is answered without calling Google. If the translator ever damages a placeholder, that text is translated again without terminology.
+
+Testers choose the **label terminology** on both translation pages (API field `label_type`):
+
+| `label_type` | Applies |
+|---|---|
+| `general` (default) | Statements, codes and units |
+| `food` | General + official food additive and allergen names |
+| `cosmetic` | General + INCI and fragrance-allergen names kept as written |
+| `off` | Nothing: plain machine translation, for comparison |
+
+Food and cosmetic lists are never combined, because many INCI names are also food words (CITRIC ACID, MILK, WATER). INCI names are only protected when written with capitals, as on ingredient lists; everyday words such as WATER only in full capitals. Statements with `…` fill-ins (25) cannot be matched literally and are skipped; one-word allergen names (milk, eggs) are left to the translator. If `Train_Data/` is missing, the app runs without terminology and hides the setting.
+
 ## Configuration reference
 
 All settings are environment variables. See `.env.example` for the full annotated list.
@@ -95,13 +115,13 @@ All settings are environment variables. See `.env.example` for the full annotate
 | `TRANSLATE_MAX_CHARS_PER_REQUEST` | `5000` | Character cap per request (Google recommends ≤ 5,000) |
 | `TRANSLATE_REQUEST_DELAY_MS` | `250` | Pause between batch requests |
 | `TRANSLATE_MAX_RETRIES` | `5` | Attempts per batch when rate-limited (backoff 5s, 10s, 20s, 40s) |
-| `DATABASE_URL` | – | `sqlite:///data/app.db`, `mssql://user:pass@host/db`, or an ADO.NET connection string |
+| `DATABASE_URL` | – | `sqlite:///data/app.db`, `mssql://user:pass@host/db`, `postgres://user:pass@host/db`, or an ADO.NET connection string |
 | `DATABASE_TYPE=sqlite`, `SQLITE_PATH` | `data/plm_translator.db` | Local SQLite database |
 | `AZURE_SQL_SERVER`, `AZURE_SQL_DATABASE`, `AZURE_SQL_USERNAME`, `AZURE_SQL_PASSWORD` | – | Azure SQL Database |
 | `LST_CHUNK_SIZE`, `LST_MAX_WORKERS`, `LST_BATCH_SIZE`, `LST_MAX_RETRIES` | `1000`, `10`, `25`, `3` | Large-scale processing settings |
 | `MAX_UPLOAD_MB` | `200` | Maximum Excel upload size |
 
-Production mode starts when `WEBSITE_SITE_NAME` is set (Azure App Service) or `NODE_ENV=production`. Production requires a SQL Server database, configured in one of three ways (checked in this order):
+Production mode starts when `WEBSITE_SITE_NAME` is set (Azure App Service) or `NODE_ENV=production` (Cloud Run's buildpacks set this). Production requires a database, configured in one of three ways (checked in this order):
 
 - `SQLAZURECONNSTR_DefaultConnection`
 - `DATABASE_URL`
@@ -118,12 +138,14 @@ utils.js                      Helpers (replaces utils.py)
 routes/main.js                Pages: /, /mass-translation, /test-results
 routes/api.js                 REST API under /api
 services/translator.js        Google Cloud Translation client (replaces the Azure translator service)
+services/terminology.js       Label terminology from Train_Data/: official wording and protected terms
 services/largeScaleTranslator.js  File validation, time estimates, chunked processing
 services/massTranslation.js   Excel mass translation + background job processing
 services/excel.js             Excel read/write helpers (replaces pandas/openpyxl)
 services/cache.js             In-memory job status cache (replaces Flask-Caching)
 templates/                    Nunjucks templates (same markup as the Flask version)
 static/                       CSS, JS, images
+Train_Data/                   Terminology database (official_terms.csv, do_not_translate.csv, coverage_report.md)
 ```
 
 ## API endpoints

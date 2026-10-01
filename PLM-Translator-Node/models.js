@@ -16,14 +16,18 @@ function isMssql() {
     return db && db.client.config.client === 'mssql';
 }
 
+function isSqlite() {
+    return db && db.client.config.client === 'sqlite3';
+}
+
 /**
  * Serialize a Date for storage.
- * SQL Server: pass the Date through (bound as DATETIME, UTC).
+ * SQL Server and PostgreSQL: pass the Date through (bound as a timestamp, UTC).
  * SQLite: store as 'YYYY-MM-DD HH:MM:SS.ffffff' (UTC), the same format SQLAlchemy used,
  * so rows written by the Python and Node versions sort and parse consistently.
  */
 function serializeDate(date) {
-    if (isMssql()) return date;
+    if (!isSqlite()) return date;
     return date.toISOString().replace('T', ' ').replace('Z', '000');
 }
 
