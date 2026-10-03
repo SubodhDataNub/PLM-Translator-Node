@@ -10,9 +10,17 @@
 {% include "partials/header.html" %}
 
     <main id="main" class="container">
-        <header class="page-head">
-            <h1>Single translation</h1>
-            <p class="lede">Translate one label text, check how much longer it runs, then record your review.</p>
+        <header class="page-head page-head--split">
+            <div>
+                <p class="eyebrow eyebrow--mark">Proof · single label</p>
+                <h1>Single translation</h1>
+                <p class="lede">Translate one label text, check how much longer it runs, then record your review.</p>
+            </div>
+            <ol class="how-steps" aria-label="How it works">
+                <li><span class="how-step-n">1</span>Pick a language</li>
+                <li><span class="how-step-n">2</span>Paste the label text</li>
+                <li><span class="how-step-n">3</span>Translate, then review</li>
+            </ol>
         </header>
 
         <!-- Translation settings -->
@@ -63,6 +71,7 @@
         <!-- Proof sheet: source and translation side by side -->
         <section class="proof crop-marks" aria-label="Proof sheet">
             <div class="proof-panes">
+                <span class="proof-direction" aria-hidden="true"><i class="fas fa-arrow-right"></i></span>
                 <div class="proof-pane">
                     <div class="pane-head">
                         <label for="sourceText" class="pane-label">Source</label>
@@ -93,7 +102,13 @@
                     </div>
                     <div class="pane-body">
                         <textarea class="pane-text" id="translatedText" name="translatedText" rows="7" readonly dir="auto"
-                            placeholder="Your translation will appear here"></textarea>
+                            placeholder=" "></textarea>
+                        <!-- Empty proof: shown by CSS while the translation box is empty -->
+                        <div class="pane-empty" aria-hidden="true">
+                            <span class="pane-empty-mark">{% include "partials/reg-mark.html" %}</span>
+                            <p class="pane-empty-title">Your proof appears here</p>
+                            <p class="pane-empty-hint">Pick a language, paste the text, then <span class="hint-touch">tap Translate.</span><span class="hint-keys">press <kbd>⌘/Ctrl ↵</kbd></span></p>
+                        </div>
                         <!-- Loading state -->
                         <div id="loadingOverlay" class="pane-loading d-none" role="status">
                             <span class="reg-spin">{% include "partials/reg-mark.html" %}</span>

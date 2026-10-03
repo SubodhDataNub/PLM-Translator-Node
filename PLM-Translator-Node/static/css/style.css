@@ -2490,3 +2490,254 @@ body > .alert {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* ==========================================================================
+   18. Colour coding: each section carries one colour from the masthead colour bar
+       ink = source, cyan = translation, ochre = review / run
+   ========================================================================== */
+
+:root {
+    --tint-cyan: color-mix(in srgb, var(--cyan) 7%, var(--sheet));
+    --tint-ochre: color-mix(in srgb, var(--ochre) 10%, var(--sheet));
+}
+
+/* Single translation: colour patch on top of each pane, tinted translation side */
+.proof-pane {
+    border-top: 3px solid var(--ink);
+}
+
+.proof-pane:first-child {
+    border-top-left-radius: calc(var(--radius-card) - 1px);
+}
+
+.proof-pane + .proof-pane {
+    border-top-color: var(--cyan);
+    border-top-right-radius: calc(var(--radius-card) - 1px);
+    background-color: var(--tint-cyan);
+}
+
+.proof-pane + .proof-pane .pane-label {
+    color: var(--cyan-text);
+}
+
+.proof-pane:first-child .pane-label {
+    color: var(--ink);
+}
+
+.pane-loading {
+    background-color: color-mix(in srgb, var(--tint-cyan) 90%, transparent);
+}
+
+.tag {
+    background-color: var(--sheet);
+}
+
+.review {
+    border-top: 3px solid var(--ochre);
+}
+
+.review-summary {
+    background-color: var(--tint-ochre);
+}
+
+@media (max-width: 767.98px) {
+    .proof-pane:first-child {
+        border-top-right-radius: calc(var(--radius-card) - 1px);
+    }
+
+    .proof-pane + .proof-pane {
+        border-top: 3px solid var(--cyan);
+        border-radius: 0;
+    }
+}
+
+/* Mass translation: a colour patch per step */
+.step-num {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.step-num::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background-color: var(--step-colour, var(--ink));
+}
+
+.mass-main > .mass-step:nth-child(2) { --step-colour: var(--cyan); }
+.mass-aside { --step-colour: var(--ochre); }
+
+.upload-area {
+    background-color: var(--tint-cyan);
+}
+
+.mass-aside .aside-card:first-child {
+    border-top: 3px solid var(--ochre);
+}
+
+/* Test results: each statistic gets its status colour as a patch */
+.stat-strip {
+    overflow: hidden;
+}
+
+.stat {
+    box-shadow: inset 0 3px 0 var(--stat-colour, var(--ink));
+}
+
+.stat:nth-child(2) { --stat-colour: var(--success); }
+.stat:nth-child(3) { --stat-colour: var(--warning); }
+.stat:nth-child(4) { --stat-colour: var(--danger); }
+.stat:nth-child(5) { --stat-colour: var(--cyan); }
+
+.filter-bar {
+    background-color: var(--tint-cyan);
+}
+
+.results-sheet .table-head {
+    border-top-left-radius: calc(var(--radius-card) - 1px);
+    border-top-right-radius: calc(var(--radius-card) - 1px);
+}
+
+/* ==========================================================================
+   19. Single translation: job ticket, direction marker, empty proof
+   ========================================================================== */
+
+.page-head--split {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-6) var(--space-10);
+}
+
+.eyebrow--mark {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.eyebrow--mark::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    background-color: var(--vermilion);
+}
+
+/* "How it works" as a numbered press-sheet legend */
+.how-steps {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-control);
+    background-color: var(--sheet);
+    list-style: none;
+}
+
+.how-steps li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    color: var(--ink);
+    font-size: var(--fs-14);
+    white-space: nowrap;
+}
+
+.how-steps li + li {
+    border-left: 1px solid var(--rule);
+}
+
+.how-step-n {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--ink);
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: var(--fs-12);
+    line-height: 1;
+}
+
+@media (max-width: 991.98px) {
+    .how-steps {
+        display: none;
+    }
+}
+
+/* Direction marker on the line between the two panes */
+.proof-panes {
+    position: relative;
+}
+
+.proof-direction {
+    position: absolute;
+    top: 44px;
+    left: 50%;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    transform: translateX(-50%);
+    border: 1px solid var(--rule);
+    border-radius: 50%;
+    background-color: var(--sheet);
+    color: var(--cyan-text);
+    font-size: var(--fs-12);
+}
+
+@media (max-width: 767.98px) {
+    .proof-direction {
+        display: none;
+    }
+}
+
+/* Empty proof in the translation pane */
+.pane-empty {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    text-align: center;
+    pointer-events: none;
+}
+
+#translatedText:placeholder-shown ~ .pane-empty {
+    display: flex;
+}
+
+.pane-empty-mark {
+    display: inline-flex;
+    margin-bottom: var(--space-4);
+    color: color-mix(in srgb, var(--cyan) 55%, var(--tint-cyan));
+    font-size: 48px;
+}
+
+.pane-empty-title {
+    margin: 0 0 var(--space-1);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: var(--fs-20);
+}
+
+.pane-empty-hint {
+    margin: 0;
+    color: var(--graphite);
+    font-size: var(--fs-14);
+}
+
+.hint-touch { display: none; }
+
+@media (hover: none) {
+    .hint-touch { display: inline; }
+    .hint-keys { display: none; }
+}
