@@ -7,6 +7,7 @@ class DNTranslator {
     constructor() {
         this.initializeElements();
         this.bindEvents();
+        this.bindOutcomeChoices();
         this.updateCharacterCount();
         this.updateObservationCharacterCount();
         this.initializeLanguageRefresh();
@@ -54,7 +55,20 @@ class DNTranslator {
         this.processingTime = document.getElementById('processingTime');
         this.sessionTranslations = document.getElementById('sessionTranslations');
         this.sessionTests = document.getElementById('sessionTests');
-        
+
+        // Result details: metadata strip, text expansion meter, review panel
+        this.resultMeta = document.getElementById('resultMeta');
+        this.translationTime = document.getElementById('translationTime');
+        this.wordCount = document.getElementById('wordCount');
+        this.expansionMeter = document.getElementById('expansionMeter');
+        this.expansionValue = document.getElementById('expansionValue');
+        this.expansionDetail = document.getElementById('expansionDetail');
+        this.expansionTrack = document.getElementById('expansionTrack');
+        this.expansionFill = document.getElementById('expansionFill');
+        this.expansionHint = document.getElementById('expansionHint');
+        this.reviewPanel = document.getElementById('reviewPanel');
+        this.outcomeChoices = document.querySelectorAll('input[name="outcomeChoice"]');
+
         // Form
         this.form = document.getElementById('translatorForm');
         
@@ -298,11 +312,11 @@ class DNTranslator {
         
         // Update color based on character count
         if (currentLength > 4500) {
-            this.charCount.style.color = '#dc3545'; // Red
+            this.charCount.style.color = 'var(--danger)';
         } else if (currentLength > 4000) {
-            this.charCount.style.color = '#fd7e14'; // Orange
+            this.charCount.style.color = 'var(--warning)';
         } else {
-            this.charCount.style.color = '#6c757d'; // Default gray
+            this.charCount.style.color = ''; // Default muted color from the stylesheet
         }
     }
 
@@ -337,7 +351,7 @@ class DNTranslator {
             // Update the label to indicate it's disabled
             const accuracyLabel = document.querySelector('label[for="accuracy"]');
             if (accuracyLabel) {
-                accuracyLabel.innerHTML = 'Accuracy (%): <span class="text-muted">(Auto-set to 0 for failures)</span>';
+                accuracyLabel.innerHTML = 'Accuracy (%) <span class="text-muted">· set to 0 for failures</span>';
             }
         } else {
             // Enable accuracy field for Success and Partial outcomes
@@ -349,7 +363,7 @@ class DNTranslator {
             // Restore the original label
             const accuracyLabel = document.querySelector('label[for="accuracy"]');
             if (accuracyLabel) {
-                accuracyLabel.innerHTML = 'Accuracy (%): <span class="text-danger">*</span>';
+                accuracyLabel.innerHTML = 'Accuracy (%) <span class="text-danger">*</span>';
             }
         }
     }
@@ -421,9 +435,9 @@ class DNTranslator {
         this.updateSelectedLanguageDisplay();
         
         // Add visual feedback
-        this.languageSearchInput.style.borderColor = '#28a745';
+        this.languageSearchInput.style.borderColor = 'var(--success)';
         setTimeout(() => {
-            this.languageSearchInput.style.borderColor = '#007bff';
+            this.languageSearchInput.style.borderColor = '';
         }, 1000);
     }
 
@@ -540,7 +554,7 @@ class DNTranslator {
     }
 
     updateResultCharCount() {
-        const count = this.translatedTextArea.value.length;
+        const count = this.countCharacters(this.translatedTextArea.value);
         this.resultCharCount.textContent = `${count} chars`;
     }
 
@@ -569,6 +583,7 @@ class DNTranslator {
         // Show loading state
         this.setLoadingState(true);
         this.showTerminologyNote(null);
+        const startedAt = performance.now(); // round trip shown in the metadata strip
 
         try {
             const response = await fetch('/api/translate', {
@@ -612,7 +627,10 @@ class DNTranslator {
                 
                 // Add fade-in animation
                 this.translatedTextArea.parentElement.classList.add('fade-in-up');
-                
+
+                // Metadata strip, text expansion meter and review panel (display only)
+                this.showResultDetails(sourceText, data.translated_text, targetLanguage, performance.now() - startedAt);
+
             } else {
                 throw new Error(data.error || 'Translation failed');
             }
@@ -630,6 +648,7 @@ class DNTranslator {
             // Clear result area
             this.translatedTextArea.value = '';
             this.copyBtn.disabled = true;
+            this.hideResultDetails();
         } finally {
             this.setLoadingState(false);
         }
@@ -711,6 +730,124 @@ class DNTranslator {
         this.terminologyNote.hidden = parts.length === 0;
     }
 
+    /**
+     * The outcome stamps are radio buttons that write to the hidden #outcome select, which stays
+     * the source of truth for validation, saving and the unsaved-changes warning.
+     */
+    bindOutcomeChoices() {
+        if (!this.outcomeChoices.length) return;
+
+        this.outcomeChoices.forEach((choice) => {
+            choice.addEventListener('change', () => {
+                if (!choice.checked) return;
+                this.outcomeSelect.value = choice.value;
+                this.outcomeSelect.dispatchEvent(new Event('change'));
+            });
+        });
+        this.outcomeSelect.addEventListener('change', () => this.syncOutcomeChoices());
+
+        // Validation focuses the select; move focus to the visible stamps instead
+        this.outcomeSelect.addEventListener('focus', () => {
+            const choices = Array.from(this.outcomeChoices);
+            (choices.find((choice) => choice.checked) || choices[0]).focus();
+        });
+    }
+
+    syncOutcomeChoices() {
+        this.outcomeChoices.forEach((choice) => {
+            choice.checked = choice.value === this.outcomeSelect.value;
+        });
+    }
+
+    /**
+     * Show the metadata strip and the text expansion meter for a finished translation and open
+     * the review panel. Display only: nothing here touches the request or the saved result.
+     */
+    showResultDetails(sourceText, translatedText, targetLanguage, elapsedMs) {
+        // Lets the browser choose the right glyphs (e.g. Japanese vs Chinese) and voice
+        this.translatedTextArea.lang = targetLanguage;
+
+        if (this.resultMeta) {
+            this.translationTime.textContent = Math.round(elapsedMs).toLocaleString();
+            this.wordCount.textContent = this.countWords(translatedText, targetLanguage).toLocaleString();
+            this.resultMeta.hidden = false;
+        }
+
+        this.updateExpansionMeter(sourceText, translatedText);
+
+        if (this.reviewPanel) {
+            this.reviewPanel.open = true;
+        }
+    }
+
+    hideResultDetails() {
+        this.translatedTextArea.removeAttribute('lang');
+        if (this.resultMeta) this.resultMeta.hidden = true;
+        if (this.expansionMeter) this.expansionMeter.hidden = true;
+    }
+
+    /** Count user-perceived characters, so combining marks (Devanagari, Arabic) count once */
+    countCharacters(text) {
+        if (window.Intl && Intl.Segmenter) {
+            return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)).length;
+        }
+        return Array.from(text).length;
+    }
+
+    /** Count words; Intl.Segmenter also handles scripts written without spaces (Chinese, Japanese, Thai) */
+    countWords(text, language) {
+        if (window.Intl && Intl.Segmenter) {
+            let segmenter;
+            try {
+                segmenter = new Intl.Segmenter(language, { granularity: 'word' });
+            } catch (error) {
+                segmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
+            }
+            return Array.from(segmenter.segment(text)).filter((segment) => segment.isWordLike).length;
+        }
+        return text.trim().split(/\s+/).filter(Boolean).length;
+    }
+
+    /**
+     * Compare the translation's length with the source (characters) so testers can spot labels
+     * that may not fit: up to +15% is fine, +15% to +35% is a warning, above +35% may not fit.
+     */
+    updateExpansionMeter(sourceText, translatedText) {
+        if (!this.expansionMeter) return;
+
+        const sourceLength = this.countCharacters(sourceText);
+        const translatedLength = this.countCharacters(translatedText);
+        if (!sourceLength) {
+            this.expansionMeter.hidden = true;
+            return;
+        }
+
+        const ratio = translatedLength / sourceLength;
+        const change = Math.round((ratio - 1) * 100);
+        const scaleMax = 1.5; // the track runs from 0 to the source length + 50%
+        let state = 'ok';
+        if (change > 35) {
+            state = 'over';
+        } else if (change > 15) {
+            state = 'warn';
+        }
+
+        let sign = '±';
+        if (change > 0) sign = '+';
+        if (change < 0) sign = '−';
+
+        this.expansionMeter.dataset.state = state;
+        this.expansionValue.textContent = `${sign}${Math.abs(change)}%`;
+        this.expansionDetail.textContent = `${sourceLength} → ${translatedLength} characters`;
+        this.expansionFill.style.width = `${Math.min(ratio / scaleMax, 1) * 100}%`;
+        this.expansionTrack.setAttribute('aria-valuenow', String(Math.round(Math.min(ratio, scaleMax) * 100)));
+        this.expansionTrack.setAttribute('aria-valuetext', change === 0
+            ? 'Same length as the source'
+            : `${Math.abs(change)}% ${change > 0 ? 'longer' : 'shorter'} than the source`);
+        this.expansionHint.hidden = state !== 'over';
+        this.expansionMeter.hidden = false;
+    }
+
     clearAll() {
         // Show confirmation dialog
         if (this.sourceTextArea.value.trim() || this.translatedTextArea.value.trim()) {
@@ -723,6 +860,7 @@ class DNTranslator {
         this.sourceTextArea.value = '';
         this.translatedTextArea.value = '';
         this.showTerminologyNote(null);
+        this.hideResultDetails();
         this.targetLanguageSelect.value = '';
         
         // Clear merged search input
@@ -787,7 +925,7 @@ class DNTranslator {
         alertDiv.innerHTML = `
             <i class="fas fa-${this.getAlertIcon(type)} me-2"></i>
             ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         `;
         
         this.statusArea.appendChild(alertDiv);
@@ -886,11 +1024,11 @@ class DNTranslator {
         
         // Update color based on character count
         if (currentLength > 450) {
-            this.observationCharCount.style.color = '#dc3545'; // Red
+            this.observationCharCount.style.color = 'var(--danger)';
         } else if (currentLength > 400) {
-            this.observationCharCount.style.color = '#fd7e14'; // Orange
+            this.observationCharCount.style.color = 'var(--warning)';
         } else {
-            this.observationCharCount.style.color = '#6c757d'; // Default gray
+            this.observationCharCount.style.color = ''; // Default muted color from the stylesheet
         }
     }
 
@@ -996,7 +1134,8 @@ class DNTranslator {
         this.accuracyInput.value = '';
         this.observationTextArea.value = '';
         this.updateObservationCharacterCount();
-        
+        this.syncOutcomeChoices();
+
         // Reset accuracy progress bar
         if (this.accuracyProgress) {
             this.accuracyProgress.style.width = '0%';
@@ -1253,7 +1392,7 @@ class DNTranslator {
             <div class="d-flex align-items-center">
                 <i class="fas ${this.getAlertIcon(type)} me-2"></i>
                 ${message}
-                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         `;
 

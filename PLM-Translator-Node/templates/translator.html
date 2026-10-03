@@ -9,322 +9,206 @@
 <body>
 {% include "partials/header.html" %}
 
-    <main id="main">
-    <!-- Main Content -->
-    <div class="container my-4">
-        <div class="row g-4">
-            <!-- Left Column - Translation Interface -->
-            <div class="col-lg-9">
-                <!-- Welcome Card -->
-                <div class="card mb-4 shadow-sm border-0" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
-                    <div class="card-body text-white text-center py-4">
-                        <h4 class="card-title mb-2 text-white">
-                            <i class="fas fa-language me-2"></i>Single Text Translation
-                        </h4>
-                        <p class="card-text mb-0 opacity-75">Translate text instantly with our advanced translation engine</p>
-                    </div>
-                </div>
+    <main id="main" class="container">
+        <header class="page-head">
+            <h1>Single translation</h1>
+            <p class="lede">Translate one label text, check how much longer it runs, then record your review.</p>
+        </header>
 
-                <!-- Source Text Panel -->
-                <div class="card mb-4 shadow-sm border-0">
-                    <div class="card-header bg-gradient text-white" style="background: linear-gradient(45deg, #007bff, #0056b3) !important;">
-                        <h5 class="card-title mb-0 text-white">
-                            <i class="fas fa-edit me-2"></i>Source Text
-                        </h5>
-                    </div>
-                    <div class="card-body p-4">
-                        <form id="translatorForm">
-                            <div class="mb-3">
-                                <label for="sourceText" class="form-label fw-semibold">Enter text to translate:</label>
-                                <textarea class="form-control shadow-sm" id="sourceText" name="sourceText" rows="5"
-                                    maxlength="5000" placeholder="Type or paste your text here for translation..." required 
-                                    style="border: 2px solid #e9ecef; border-radius: 12px; font-size: 1.05rem; line-height: 1.6; min-height: 120px;"></textarea>
-                                <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <div class="form-text text-muted">
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        <span id="charCount">0</span>/5000 characters
-                                    </div>
-                                    <div class="text-muted small">
-                                        <i class="fas fa-clock me-1"></i>Instant translation
-                                    </div>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+        <!-- Translation settings -->
+        <section class="settings-row" aria-label="Translation settings">
+            <div class="settings-language">
+                <label for="languageSearchInput" class="form-label">Target language</label>
 
-                <!-- Translation Settings Panel -->
-                <div class="card mb-4 shadow-sm border-0">
-                    <div class="card-header bg-gradient text-white" style="background: linear-gradient(45deg, #007bff, #0056b3) !important;">
-                        <h5 class="card-title mb-0 text-white">
-                            <i class="fas fa-cog me-2"></i>Translation Settings
-                        </h5>
-                    </div>
-                    <div class="card-body p-4">
-                        <div class="row g-3">
-                            <div class="col-md-8">
-                                <label for="targetLanguage" class="form-label fw-semibold">Target Language:</label>
-                                
-                                <!-- Merged Search-Dropdown Component -->
-                                <div class="language-selector position-relative">
-                                    <input type="text" class="form-control shadow-sm" id="languageSearchInput" 
-                                           placeholder="Search and select target language..." 
-                                           style="border: 2px solid #007bff; border-radius: 12px; padding-right: 45px;"
-                                           autocomplete="off">
-                                    <i class="fas fa-chevron-down position-absolute top-50 end-0 translate-middle-y me-3 text-primary" 
-                                       style="cursor: pointer; user-select: none;" 
-                                       title="Click to open language dropdown"></i>
-                                    
-                                    <!-- Hidden select for form submission -->
-                                    <select class="d-none" id="targetLanguage" name="targetLanguage" required>
-                                        <option value="">Select target language...</option>
-                                        {% for language in languages %}
-                                        <option value="{{ language.key }}">{{ language.text }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    
-                                    <!-- Dropdown list -->
-                                    <div class="language-dropdown position-absolute w-100 bg-white border border-primary shadow-lg rounded-3 mt-1 d-none" 
-                                         style="max-height: 300px; overflow-y: auto; border-width: 2px;">
-                                        <div class="p-2 border-bottom bg-light">
-                                            <small class="text-muted fw-semibold">
-                                                <i class="fas fa-search me-1"></i>Type to search languages
-                                            </small>
-                                        </div>
-                                        <div id="languageOptions">
-                                            {% for language in languages %}
-                                            <div class="language-option p-2 border-bottom border-light" 
-                                                 data-value="{{ language.key }}" 
-                                                 data-text="{{ language.text }}"
-                                                 style="cursor: pointer; transition: all 0.2s ease;">
-                                                {{ language.text }}
-                                            </div>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Common Languages Quick Select -->
-                                <div class="mt-3">
-                                    <label class="form-label fw-semibold small text-muted">Quick Select:</label>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill quick-lang-btn" data-lang="es">Spanish</button>
-                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill quick-lang-btn" data-lang="fr">French</button>
-                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill quick-lang-btn" data-lang="de">German</button>
-                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill quick-lang-btn" data-lang="it">Italian</button>
-                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill quick-lang-btn" data-lang="pt">Portuguese</button>
-                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill quick-lang-btn" data-lang="zh-CN">Chinese</button>
-                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill quick-lang-btn" data-lang="ja">Japanese</button>
-                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill quick-lang-btn" data-lang="ko">Korean</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4 d-flex align-items-end">
-                                <div class="w-100">
-                                    <button type="button" id="translateBtn" class="btn btn-primary btn-lg w-100 shadow-sm" 
-                                            style="border-radius: 12px; background: linear-gradient(45deg, #007bff, #0056b3); border: none; font-weight: 600;">
-                                        <i class="fas fa-language me-2"></i>Translate Now
-                                    </button>
-                                    
-                                </div>
-                            </div>
+                <!-- Merged Search-Dropdown Component -->
+                <div class="language-selector">
+                    <input type="text" class="form-control" id="languageSearchInput"
+                           placeholder="Search languages…" autocomplete="off">
+                    <i class="fas fa-chevron-down" title="Show all languages" aria-hidden="true"></i>
+
+                    <!-- Hidden select for form submission -->
+                    <select class="d-none" id="targetLanguage" name="targetLanguage" required>
+                        <option value="">Select target language...</option>
+                        {% for language in languages %}
+                        <option value="{{ language.key }}">{{ language.text }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <!-- Dropdown list -->
+                    <div class="language-dropdown w-100 d-none">
+                        <div class="language-dropdown-hint">Type to filter languages</div>
+                        <div id="languageOptions">
+                            {% for language in languages %}{% if language.key %}
+                            <div class="language-option" data-value="{{ language.key }}" data-text="{{ language.text }}">{{ language.text }}</div>
+                            {% endif %}{% endfor %}
                         </div>
                     </div>
                 </div>
-
-                <!-- Translation Result Panel -->
-                <div class="card mb-4 shadow-sm border-0">
-                    <div class="card-header bg-gradient text-white" style="background: linear-gradient(45deg, #007bff, #0056b3) !important;">
-                        <h5 class="card-title mb-0 text-white">
-                            <i class="fas fa-check-circle me-2"></i>Translation Result
-                        </h5>
-                    </div>
-                    <div class="card-body p-4">
-                        <div class="mb-3">
-                            <label for="translatedText" class="form-label fw-semibold">Translated text:</label>
-                            <textarea class="form-control shadow-sm" id="translatedText" name="translatedText" rows="5" readonly
-                                placeholder="Your translation will appear here..."
-                                style="border: 2px solid #e9ecef; border-radius: 12px; font-size: 1.05rem; line-height: 1.6; background-color: #f8f9fa; min-height: 120px;"></textarea>
-                            <div id="terminologyNote" class="small text-muted mt-2" hidden></div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div class="d-flex gap-2">
-                                <button type="button" id="copyBtn" class="btn btn-outline-primary shadow-sm" disabled
-                                        style="border-radius: 10px; border-width: 2px;">
-                                    <i class="fas fa-copy me-2"></i>Copy Text
-                                </button>
-                                <button type="button" id="clearBtn" class="btn btn-outline-primary shadow-sm"
-                                        style="border-radius: 10px; border-width: 2px;">
-                                    <i class="fas fa-trash-alt me-2"></i>Clear All
-                                </button>
-                            </div>
-                            <div class="text-muted small">
-                                <span id="translationStats" class="d-none">
-                                    <i class="fas fa-chart-line me-1"></i>
-                                    <span id="translationTime">--</span>ms | 
-                                    <span id="wordCount">--</span> words
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Quick Actions Card -->
-                <div class="card shadow-sm border-0 bg-light">
-                    <div class="card-body p-3">
-                        <div class="row text-center">
-                            <div class="col-md-4">
-                                <div class="d-flex align-items-center justify-content-center">
-                                    <i class="fas fa-clock text-primary me-2"></i>
-                                    <div>
-                                        <div class="fw-semibold small">Processing Time</div>
-                                        <div class="text-muted small" id="processingTime">Instant</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="d-flex align-items-center justify-content-center">
-                                    <i class="fas fa-text-width text-primary me-2"></i>
-                                    <div>
-                                        <div class="fw-semibold small">Character Count</div>
-                                        <div class="text-muted small" id="resultCharCount">0</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="d-flex align-items-center justify-content-center">
-                                    <i class="fas fa-language text-primary me-2"></i>
-                                    <div>
-                                        <div class="fw-semibold small">Target Language</div>
-                                        <div class="text-muted small" id="selectedLanguage">Not selected</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Status Area -->
-                <div id="statusArea"></div>
             </div>
 
-            <!-- Right Column - Test Results -->
-            <div class="col-lg-3">
-                <!-- Test Results Panel -->
-                <div class="card shadow-sm border-0 sticky-top" style="top: 20px;">
-                    <div class="card-header bg-gradient text-white" style="background: linear-gradient(45deg, #007bff, #0056b3) !important;">
-                        <h5 class="card-title mb-0 text-white">
-                            <i class="fas fa-clipboard-check me-2"></i>Test Results
-                        </h5>
+            <!-- Common Languages Quick Select -->
+            <div class="quick-tags" role="group" aria-labelledby="quickSelectLabel">
+                <span class="quick-tags-label" id="quickSelectLabel">Quick select</span>
+                <button type="button" class="tag quick-lang-btn" data-lang="es">Spanish</button>
+                <button type="button" class="tag quick-lang-btn" data-lang="fr">French</button>
+                <button type="button" class="tag quick-lang-btn" data-lang="de">German</button>
+                <button type="button" class="tag quick-lang-btn" data-lang="it">Italian</button>
+                <button type="button" class="tag quick-lang-btn" data-lang="pt">Portuguese</button>
+                <button type="button" class="tag quick-lang-btn" data-lang="zh-CN">Chinese</button>
+                <button type="button" class="tag quick-lang-btn" data-lang="ja">Japanese</button>
+                <button type="button" class="tag quick-lang-btn" data-lang="ko">Korean</button>
+            </div>
+        </section>
+
+        <!-- Proof sheet: source and translation side by side -->
+        <section class="proof crop-marks" aria-label="Proof sheet">
+            <div class="proof-panes">
+                <div class="proof-pane">
+                    <div class="pane-head">
+                        <label for="sourceText" class="pane-label">Source</label>
+                        <span class="pane-note">Language detected automatically</span>
                     </div>
-                    <div class="card-body p-4">
-                        <div class="alert alert-primary border-0 shadow-sm" role="alert">
-                            <i class="fas fa-lightbulb me-2"></i>
-                            <strong>Quality Assessment</strong><br>
-                            <small>Help us improve by testing translation quality</small>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="outcome" class="form-label fw-semibold">
-                                Outcome <span class="text-danger">*</span>
-                            </label>
-                            <select class="form-select shadow-sm" id="outcome" name="outcome" required
-                                    style="border: 2px solid #e9ecef; border-radius: 10px;">
-                                <option value="">Select Outcome</option>
-                                <option value="Success">✅ Success</option>
-                                <option value="Partial">⚠️ Partial</option>
-                                <option value="Failure">❌ Failed</option>
-                            </select>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="accuracy" class="form-label fw-semibold">
-                                Accuracy (%) <span class="text-danger">*</span>
-                            </label>
-                            <div class="input-group shadow-sm">
-                                <input type="number" class="form-control" id="accuracy" name="accuracy" min="0"
-                                    max="100" step="0.1" placeholder="0-100" required
-                                    style="border: 2px solid #e9ecef; border-radius: 10px 0 0 10px;">
-                                <span class="input-group-text bg-light" style="border: 2px solid #e9ecef; border-left: none; border-radius: 0 10px 10px 0;">
-                                    <i class="fas fa-percentage text-muted"></i>
-                                </span>
-                            </div>
-                            <div class="progress mt-2" style="height: 4px;">
-                                <div class="progress-bar bg-success" role="progressbar" id="accuracyProgress" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="testedBy" class="form-label fw-semibold">
-                                Tested By <span class="text-danger">*</span>
-                            </label>
-                            <input type="text" class="form-control shadow-sm" id="testedBy" name="testedBy"
-                                placeholder="Enter your name..." required
-                                style="border: 2px solid #e9ecef; border-radius: 10px;">
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label for="observation" class="form-label fw-semibold">Observation:</label>
-                            <textarea class="form-control shadow-sm" id="observation" name="observation" rows="3"
-                                maxlength="500" placeholder="Share your observations about the translation quality..."
-                                style="border: 2px solid #e9ecef; border-radius: 10px; min-height: 80px;"></textarea>
-                            <div class="d-flex justify-content-between mt-1">
-                                <small class="text-muted">
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    <span id="observationCharCount">0</span>/500 characters
-                                </small>
-                                <small class="text-muted">Optional</small>
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid gap-2">
-                            <button type="button" id="saveTestResultsBtn" class="btn btn-primary btn-lg shadow-sm"
-                                    style="border-radius: 10px; font-weight: 600;">
-                                <i class="fas fa-save me-2"></i>Save Test Results
+                    <form id="translatorForm" class="pane-body">
+                        <textarea class="pane-text" id="sourceText" name="sourceText" rows="7" maxlength="5000" dir="auto"
+                            placeholder="Type or paste label text…" required></textarea>
+                    </form>
+                    <div class="pane-foot">
+                        <span class="pane-count mono"><span id="charCount">0</span>/5000</span>
+                        <div class="pane-actions">
+                            <button type="button" id="clearBtn" class="btn btn-quiet btn-sm">
+                                <i class="fas fa-eraser me-2" aria-hidden="true"></i>Clear all
+                            </button>
+                            <kbd class="shortcut-hint" title="Translate with Cmd or Ctrl + Enter">⌘/Ctrl ↵</kbd>
+                            <button type="button" id="translateBtn" class="btn btn-primary" aria-keyshortcuts="Control+Enter Meta+Enter">
+                                <i class="fas fa-language me-2"></i>Translate
                             </button>
                         </div>
-                        
-                        <!-- Quick Stats -->
-                        <div class="mt-4 pt-3 border-top">
-                            <div class="text-center">
-                                <h6 class="text-muted mb-2">
-                                    <i class="fas fa-chart-bar me-1"></i>Session Stats
-                                </h6>
-                                <div class="row text-center">
-                                    <div class="col-6">
-                                        <div class="fw-bold text-primary" id="sessionTranslations">0</div>
-                                        <small class="text-muted">Translations</small>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="fw-bold text-primary" id="sessionTests">0</div>
-                                        <small class="text-muted">Tests Saved</small>
-                                    </div>
-                                </div>
-                            </div>
+                    </div>
+                </div>
+
+                <div class="proof-pane">
+                    <div class="pane-head">
+                        <label for="translatedText" class="pane-label">Translation</label>
+                        <span class="pane-lang mono" id="selectedLanguage">Not selected</span>
+                    </div>
+                    <div class="pane-body">
+                        <textarea class="pane-text" id="translatedText" name="translatedText" rows="7" readonly dir="auto"
+                            placeholder="Your translation will appear here"></textarea>
+                        <!-- Loading state -->
+                        <div id="loadingOverlay" class="pane-loading d-none" role="status">
+                            <span class="reg-spin">{% include "partials/reg-mark.html" %}</span>
+                            <span>Translating…</span>
                         </div>
+                    </div>
+                    <div class="pane-foot">
+                        <p class="meta-strip mono" id="resultMeta" hidden>
+                            <span id="translationTime">--</span> ms<span class="meta-sep" aria-hidden="true"> · </span><span id="wordCount">--</span> words<span class="meta-sep" aria-hidden="true"> · </span><span id="resultCharCount">0 chars</span>
+                        </p>
+                        <button type="button" id="copyBtn" class="btn btn-outline-primary btn-sm" disabled>
+                            <i class="fas fa-copy me-2"></i>Copy
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
+            <!-- Text expansion: translation length vs source (characters) -->
+            <div class="expansion" id="expansionMeter" hidden>
+                <div class="expansion-head">
+                    <span class="expansion-title" id="expansionTitle">Text expansion</span>
+                    <span class="expansion-value mono" id="expansionValue">±0%</span>
+                    <span class="expansion-detail mono" id="expansionDetail"></span>
+                </div>
+                <div class="expansion-track" id="expansionTrack" role="meter" aria-labelledby="expansionTitle"
+                     aria-valuemin="0" aria-valuemax="150" aria-valuenow="100">
+                    <span class="expansion-fill" id="expansionFill"></span>
+                    <span class="expansion-mark" style="--at: 66.67%" aria-hidden="true"><span>0%</span></span>
+                    <span class="expansion-mark" style="--at: 76.67%" aria-hidden="true"><span>+15%</span></span>
+                    <span class="expansion-mark" style="--at: 90%" aria-hidden="true"><span>+35%</span></span>
+                </div>
+                <p class="expansion-hint" id="expansionHint" hidden>
+                    <i class="fas fa-triangle-exclamation me-2" aria-hidden="true"></i>May not fit the original label space
+                </p>
+            </div>
+
+            <div id="terminologyNote" class="terminology-note" hidden></div>
+        </section>
+
+        <!-- Quality assessment -->
+        <details class="review sheet" id="reviewPanel">
+            <summary class="review-summary">
+                <span class="review-title">
+                    <i class="fas fa-chevron-right review-chevron" aria-hidden="true"></i>Review this translation
+                </span>
+                <span class="session-stats mono">
+                    <span><span id="sessionTranslations">0</span> translated</span>
+                    <span><span id="sessionTests">0</span> saved</span>
+                </span>
+            </summary>
+
+            <div class="review-body">
+                <fieldset class="review-outcome">
+                    <legend class="form-label">Outcome <span class="text-danger">*</span></legend>
+                    <!-- The select stays the source of truth; the stamps below set it -->
+                    <select class="visually-hidden" id="outcome" name="outcome" required tabindex="-1" aria-hidden="true">
+                        <option value="">Select Outcome</option>
+                        <option value="Success">Success</option>
+                        <option value="Partial">Partial</option>
+                        <option value="Failure">Failed</option>
+                    </select>
+                    <div class="stamp-choices">
+                        <input type="radio" class="stamp-radio" name="outcomeChoice" id="outcomeChoiceSuccess" value="Success">
+                        <label class="stamp stamp-choice stamp--success" for="outcomeChoiceSuccess">
+                            <i class="fas fa-check" aria-hidden="true"></i>Success
+                        </label>
+                        <input type="radio" class="stamp-radio" name="outcomeChoice" id="outcomeChoicePartial" value="Partial">
+                        <label class="stamp stamp-choice stamp--partial" for="outcomeChoicePartial">
+                            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>Partial
+                        </label>
+                        <input type="radio" class="stamp-radio" name="outcomeChoice" id="outcomeChoiceFailure" value="Failure">
+                        <label class="stamp stamp-choice stamp--failed" for="outcomeChoiceFailure">
+                            <i class="fas fa-xmark" aria-hidden="true"></i>Failed
+                        </label>
+                    </div>
+                </fieldset>
+
+                <div class="review-field">
+                    <label for="accuracy" class="form-label">Accuracy (%) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <input type="number" class="form-control mono" id="accuracy" name="accuracy" min="0"
+                            max="100" step="0.1" placeholder="0–100" required>
+                        <span class="input-group-text mono" aria-hidden="true">%</span>
+                    </div>
+                    <div class="progress mt-2" aria-hidden="true">
+                        <div class="progress-bar bg-success" role="progressbar" id="accuracyProgress" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="review-field">
+                    <label for="testedBy" class="form-label">Tested by <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="testedBy" name="testedBy"
+                        placeholder="Your name" required>
+                </div>
+
+                <div class="review-field review-field--wide">
+                    <label for="observation" class="form-label">Observation <span class="optional">optional</span></label>
+                    <textarea class="form-control" id="observation" name="observation" rows="3" dir="auto"
+                        maxlength="500" placeholder="What reads well, what doesn't…"></textarea>
+                    <div class="form-text mono"><span id="observationCharCount">0</span>/500</div>
+                </div>
+
+                <div class="review-actions">
+                    <button type="button" id="saveTestResultsBtn" class="btn btn-ink">
+                        <i class="fas fa-save me-2"></i>Save Test Results
+                    </button>
+                </div>
+            </div>
+        </details>
+
+        <!-- Status Area -->
+        <div id="statusArea"></div>
     </main>
 
 {% include "partials/footer.html" %}
-
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="loading-overlay d-none">
-        <div class="loading-content">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <div class="mt-3">Translating...</div>
-        </div>
-    </div>
-
-    <!-- Test Results modal removed from Single Translation page (view-only modal) -->
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
