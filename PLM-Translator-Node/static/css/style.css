@@ -188,7 +188,7 @@ small, .small {
 .stamp {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-1);
     padding: 2px var(--space-2);
     border: 1px solid currentColor;
     border-radius: 4px;
@@ -556,7 +556,7 @@ small, .small {
    ========================================================================== */
 
 .form-label {
-    margin-bottom: 6px;
+    margin-bottom: var(--space-2);
     color: var(--ink);
     font-size: var(--fs-14);
     font-weight: 500;
@@ -699,6 +699,18 @@ body > .alert {
     box-shadow: var(--shadow-float);
 }
 
+/* Phones: across the top instead, so the toast never covers the Translate button */
+@media (max-width: 575.98px) {
+    body > .alert {
+        top: var(--space-2) !important;
+        right: var(--space-2) !important;
+        bottom: auto;
+        left: var(--space-2);
+        min-width: 0 !important;
+        max-width: none;
+    }
+}
+
 /* ==========================================================================
    8. Tables, badges, progress, pagination, menus, modal
    ========================================================================== */
@@ -715,7 +727,7 @@ body > .alert {
 }
 
 .table > thead th {
-    padding: 10px var(--space-3);
+    padding: var(--space-3);
     border-bottom: 1px solid var(--ink);
     background-color: var(--sheet);
     color: var(--graphite);
@@ -738,7 +750,7 @@ body > .alert {
 }
 
 .badge {
-    padding: 3px var(--space-2);
+    padding: var(--space-1) var(--space-2);
     border-radius: 4px;
     font-family: var(--font-mono);
     font-size: var(--fs-12);
@@ -1030,7 +1042,7 @@ body > .alert {
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    padding-bottom: 6px;
+    padding-bottom: var(--space-2);
 }
 
 .quick-tags-label {
@@ -1046,7 +1058,7 @@ body > .alert {
     display: inline-flex;
     align-items: center;
     min-height: 28px;
-    padding: 2px 10px;
+    padding: 2px var(--space-3);
     border: 1px solid var(--ink);
     border-radius: 4px;
     background: transparent;
@@ -1474,7 +1486,7 @@ body > .alert {
 
 .stamp-choice {
     min-height: 36px;
-    padding: 6px 14px;
+    padding: var(--space-2) var(--space-4);
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease;
 }
@@ -1719,7 +1731,7 @@ body > .alert {
     display: flex;
     flex-wrap: wrap;
     gap: 2px var(--space-2);
-    padding: 6px 0;
+    padding: var(--space-2) 0;
     border-bottom: 1px solid var(--rule);
     overflow-wrap: anywhere;
 }
@@ -1853,7 +1865,7 @@ body > .alert {
 }
 
 .guide-list li {
-    padding: 6px 0;
+    padding: var(--space-2) 0;
     border-bottom: 1px solid var(--rule);
 }
 
@@ -2034,7 +2046,7 @@ body > .alert {
 .stat-label {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-1);
     color: var(--graphite);
     font-size: var(--fs-12);
     font-weight: 500;
@@ -2313,7 +2325,7 @@ body > .alert {
 }
 
 .detail-label {
-    margin: 0 0 6px;
+    margin: 0 0 var(--space-2);
     color: var(--graphite);
     font-family: var(--font-mono);
     font-size: var(--fs-12);
@@ -2337,16 +2349,8 @@ body > .alert {
 }
 
 @media (max-width: 991.98px) {
-    .stat-strip {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .stat:nth-child(4) {
-        border-left: 0;
-    }
-
-    .stat:nth-child(n + 4) {
-        border-top: 1px solid var(--rule);
+    .stat {
+        padding: var(--space-3) var(--space-4);
     }
 
     .filter-bar {
@@ -2363,30 +2367,8 @@ body > .alert {
     }
 }
 
-/* Phones: each record becomes a labelled card */
-@media (max-width: 767.98px) {
-    .stat-strip {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .stat:first-child {
-        grid-column: 1 / -1;
-    }
-
-    .stat + .stat {
-        border-left: 0;
-        border-top: 1px solid var(--rule);
-    }
-
-    .stat:nth-child(3),
-    .stat:nth-child(5) {
-        border-left: 1px solid var(--rule);
-    }
-
-    .filter-bar {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
+/* Tablets and phones: each record becomes a labelled card (two per row from 576px) */
+@media (max-width: 991.98px) {
     .results-sheet .table-container {
         max-height: none;
         overflow: visible;
@@ -2422,7 +2404,7 @@ body > .alert {
         align-items: baseline;
         gap: var(--space-3);
         min-width: 0;
-        padding: 3px 0;
+        padding: var(--space-1) 0;
         border: 0;
         background: transparent;
         box-shadow: none;
@@ -2461,6 +2443,46 @@ body > .alert {
         right: var(--space-2);
         width: auto;
         padding: 0;
+    }
+}
+
+@media (min-width: 576px) and (max-width: 991.98px) {
+    #resultsTable > tbody {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #resultsTable > tbody tr:nth-child(2) {
+        border-top-color: var(--ink);
+    }
+
+    #resultsTable > tbody tr:nth-child(odd) {
+        border-right: 1px solid var(--rule);
+    }
+}
+
+/* Phones */
+@media (max-width: 767.98px) {
+    .stat-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .stat:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .stat + .stat {
+        border-left: 0;
+        border-top: 1px solid var(--rule);
+    }
+
+    .stat:nth-child(3),
+    .stat:nth-child(5) {
+        border-left: 1px solid var(--rule);
+    }
+
+    .filter-bar {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .detail-list,
