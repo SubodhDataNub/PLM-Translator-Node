@@ -3,447 +3,285 @@
 <head>
 {% include "partials/head.html" %}
     <title>Test results · DN Translator</title>
-
-    
-    <style>
-        .stats-card {
-            transition: transform 0.2s;
-        }
-        .stats-card:hover {
-            transform: translateY(-2px);
-        }
-        .table-container {
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-        .filter-section {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        }
-        .search-box {
-            border-radius: 25px;
-        }
-        .badge-large {
-            font-size: 0.9rem;
-            padding: 0.5rem 0.8rem;
-            font-weight: 600;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-            cursor: default;
-        }
-        
-        .badge-large:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
-        }
-        
-        .sortable {
-            cursor: pointer;
-            user-select: none;
-            transition: background-color 0.2s ease;
-        }
-        
-        .sortable:hover {
-            background-color: rgba(0,123,255,0.1);
-        }
-        
-        .text-truncate-custom {
-            max-width: 250px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-    </style>
 </head>
 <body>
 {% include "partials/header.html" %}
 
-    <main id="main">
-    <!-- Main Content -->
-    <div class="container my-4">
-        <!-- Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-xl-3 col-md-6 mb-3">
-                <div class="card stats-card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="bg-danger text-white rounded-circle p-3">
-                                <i class="fas fa-times-circle fa-lg"></i>
-                            </div>
-                        </div>
-                        <h3 class="mb-1 fw-bold text-danger" id="failedResults">
-                            {{ stats.failed }}
-                        </h3>
-                        <p class="text-muted mb-0">Failed</p>
-                    </div>
-                </div>
+    {% set filtered = current_filters.outcome or current_filters.language or current_filters.search %}
+    <main id="main" class="container">
+        <header class="page-head page-head--actions">
+            <div>
+                <h1>Test results</h1>
+                <p class="lede">Every saved review and mass translation row. Filter, inspect or export.</p>
             </div>
-            <div class="col-xl-3 col-md-6 mb-3">
-                <div class="card stats-card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="bg-success-green rounded-circle p-3">
-                                <i class="fas fa-check-circle fa-lg"></i>
-                            </div>
-                        </div>
-                        <h3 class="mb-1 fw-bold text-success" id="successResults">
-                            {{ stats.success }}
-                        </h3>
-                        <p class="text-muted mb-0">Successful</p>
-                    </div>
-                </div>
+            <div class="head-actions">
+                <button type="button" class="btn btn-outline-primary" onclick="exportResults()">
+                    <i class="fas fa-download me-2" aria-hidden="true"></i>Export Excel
+                </button>
+                <button type="button" class="btn btn-quiet" onclick="refreshResults()">
+                    <i class="fas fa-sync-alt me-2" aria-hidden="true"></i>Refresh
+                </button>
             </div>
-            <div class="col-xl-3 col-md-6 mb-3">
-                <div class="card stats-card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="bg-warning text-white rounded-circle p-3">
-                                <i class="fas fa-exclamation-triangle fa-lg"></i>
-                            </div>
-                        </div>
-                        <h3 class="mb-1 fw-bold text-warning" id="partialResults">
-                            {{ stats.partial }}
-                        </h3>
-                        <p class="text-muted mb-0">Partial</p>
-                    </div>
-                </div>
+        </header>
+
+        <!-- Statistics -->
+        <section class="stat-strip sheet" aria-label="Statistics">
+            <div class="stat">
+                <span class="stat-label">{% if filtered %}Matching{% else %}Records{% endif %}</span>
+                <span class="stat-value mono">{{ stats.total }}</span>
             </div>
-            <div class="col-xl-3 col-md-6 mb-3">
-                <div class="card stats-card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="bg-success-green rounded-circle p-3">
-                                <i class="fas fa-percentage fa-lg"></i>
-                            </div>
-                        </div>
-                        <h3 class="mb-1 fw-bold text-success" id="successRate">
-                            {{ "%.1f"|format(stats.success_rate) }}%
-                        </h3>
-                        <p class="text-muted mb-0">Success Rate</p>
-                    </div>
-                </div>
+            <div class="stat">
+                <span class="stat-label"><i class="fas fa-check stamp--success" aria-hidden="true"></i>Successful</span>
+                <span class="stat-value mono" id="successResults">{{ stats.success }}</span>
             </div>
-        </div>
+            <div class="stat">
+                <span class="stat-label"><i class="fas fa-triangle-exclamation stamp--partial" aria-hidden="true"></i>Partial</span>
+                <span class="stat-value mono" id="partialResults">{{ stats.partial }}</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label"><i class="fas fa-xmark stamp--failed" aria-hidden="true"></i>Failed</span>
+                <span class="stat-value mono" id="failedResults">{{ stats.failed }}</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Success rate</span>
+                <span class="stat-value mono" id="successRate">{{ "%.1f"|format(stats.success_rate) }}%</span>
+            </div>
+        </section>
 
         <!-- Filters and Search -->
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-body filter-section">
-                <div class="row g-3 align-items-center">
-                    <div class="col-md-4">
-                        <div class="input-group">
-                            <span class="input-group-text bg-white border-end-0">
-                                <i class="fas fa-search text-muted"></i>
-                            </span>
-                            <input type="text" class="form-control search-box border-start-0" 
-                                   id="searchInput" placeholder="Search by tested by, language, or observation..." 
-                                   value="{{ current_filters.search if current_filters.search else '' }}">
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <select class="form-select" id="outcomeFilter">
-                            <option value="">All Outcomes</option>
-                            <option value="Success" {% if current_filters.outcome == 'Success' %}selected{% endif %}>Success Only</option>
-                            <option value="Partial" {% if current_filters.outcome == 'Partial' %}selected{% endif %}>Partial Only</option>
-                            <option value="Failed" {% if current_filters.outcome == 'Failed' %}selected{% endif %}>Failed Only</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <select class="form-select" id="languageFilter">
-                            <option value="">All Languages</option>
-                            {% for lang in unique_languages %}
-                                {% if lang %}
-                                    <option value="{{ lang }}" {% if current_filters.language == lang %}selected{% endif %}>{{ lang }}</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <select class="form-select" id="sortBy">
-                            <option value="id_desc" {% if current_filters.sort == 'id_desc' or not current_filters.sort %}selected{% endif %}>Newest ID First</option>
-                            <option value="id_asc" {% if current_filters.sort == 'id_asc' %}selected{% endif %}>Oldest ID First</option>
-                            <option value="created_at_desc" {% if current_filters.sort == 'created_at_desc' %}selected{% endif %}>Newest Date First</option>
-                            <option value="created_at_asc" {% if current_filters.sort == 'created_at_asc' %}selected{% endif %}>Oldest Date First</option>
-                            <option value="accuracy_desc" {% if current_filters.sort == 'accuracy_desc' %}selected{% endif %}>Highest Accuracy</option>
-                            <option value="accuracy_asc" {% if current_filters.sort == 'accuracy_asc' %}selected{% endif %}>Lowest Accuracy</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-outline-primary w-100" onclick="clearFilters()">
-                            <i class="fas fa-times me-1"></i>Clear
-                        </button>
-                    </div>
+        <section class="filter-bar sheet" role="search" aria-label="Filter test results">
+            <div class="filter-field filter-field--search">
+                <label for="searchInput" class="form-label">Search <span class="optional">press Enter</span></label>
+                <div class="input-icon">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Name, text or observation"
+                           value="{{ current_filters.search if current_filters.search else '' }}">
                 </div>
             </div>
-        </div>
+            <div class="filter-field">
+                <label for="outcomeFilter" class="form-label">Outcome</label>
+                <select class="form-select" id="outcomeFilter">
+                    <option value="">All outcomes</option>
+                    <option value="Success" {% if current_filters.outcome == 'Success' %}selected{% endif %}>Success</option>
+                    <option value="Partial" {% if current_filters.outcome == 'Partial' %}selected{% endif %}>Partial</option>
+                    <option value="Failed" {% if current_filters.outcome == 'Failed' %}selected{% endif %}>Failed</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="languageFilter" class="form-label">Language</label>
+                <select class="form-select" id="languageFilter">
+                    <option value="">All languages</option>
+                    {% for lang in unique_languages %}
+                        {% if lang %}
+                            <option value="{{ lang }}" {% if current_filters.language == lang %}selected{% endif %}>{{ lang }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="sortBy" class="form-label">Sort</label>
+                <select class="form-select" id="sortBy">
+                    <option value="id_desc" {% if current_filters.sort == 'id_desc' or not current_filters.sort %}selected{% endif %}>Newest ID first</option>
+                    <option value="id_asc" {% if current_filters.sort == 'id_asc' %}selected{% endif %}>Oldest ID first</option>
+                    <option value="created_at_desc" {% if current_filters.sort == 'created_at_desc' %}selected{% endif %}>Newest date first</option>
+                    <option value="created_at_asc" {% if current_filters.sort == 'created_at_asc' %}selected{% endif %}>Oldest date first</option>
+                    <option value="accuracy_desc" {% if current_filters.sort == 'accuracy_desc' %}selected{% endif %}>Highest accuracy</option>
+                    <option value="accuracy_asc" {% if current_filters.sort == 'accuracy_asc' %}selected{% endif %}>Lowest accuracy</option>
+                </select>
+            </div>
+            <div class="filter-field filter-field--action">
+                <button type="button" class="btn btn-quiet" onclick="clearFilters()">
+                    <i class="fas fa-times me-2" aria-hidden="true"></i>Clear
+                </button>
+            </div>
+        </section>
 
         <!-- Results Table -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-gradient bg-primary text-white">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0 text-white">
-                                <i class="fas fa-table me-2"></i>Test Results Database
-                            </h5>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-outline-light btn-sm" onclick="exportResults()">
-                                    <i class="fas fa-download me-1"></i>Export
-                                </button>
-                                <button class="btn btn-outline-light btn-sm" onclick="refreshResults()">
-                                    <i class="fas fa-sync-alt me-1"></i>Refresh
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body p-0">
-                        {% if results|length %}
-                        <div class="table-container">
-                            <table class="table table-hover mb-0" id="resultsTable">
-                                <thead class="table-dark sticky-top">
-                                    <tr>
-                                        <th scope="col" class="text-center sortable" style="width: 60px;" data-sort="id">
-                                            <i class="fas fa-hashtag"></i>ID
-                                            <i class="fas fa-sort ms-1 text-muted"></i>
-                                        </th>
-                                        <th scope="col" style="width: 120px;" class="sortable" data-sort="outcome">
-                                            <i class="fas fa-flag me-1 text-primary"></i>Status
-                                            <i class="fas fa-sort ms-1 text-muted"></i>
-                                        </th>
-                                        <th scope="col" style="width: 80px;">
-                                            <i class="fas fa-percentage me-1"></i>Accuracy
-                                        </th>
-                                        <th scope="col" style="width: 120px;">
-                                            <i class="fas fa-user me-1"></i>Tested By
-                                        </th>
-                                        <th scope="col" style="width: 100px;">
-                                            <i class="fas fa-language me-1"></i>Language
-                                        </th>
-                                        <th scope="col">
-                                            <i class="fas fa-eye me-1"></i>Observation
-                                        </th>
-                                        <th scope="col" style="width: 140px;">
-                                            <i class="fas fa-clock me-1"></i>Created
-                                        </th>
-                                        <th scope="col" style="width: 80px;">
-                                            <i class="fas fa-cog me-1"></i>Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for result in results %}
-                                    <tr class="result-row{% if result.outcome == 'Success' %} table-success-light{% elif result.outcome == 'Partial' %} table-warning-light{% elif result.outcome in ['Failed', 'Failure'] %} table-danger-light{% endif %}" data-result-id="{{ result.id }}">
-                                        <td class="text-center">
-                                            <small class="text-muted">#{{ result.id }}</small>
-                                        </td>
-                                        <td>
-                                            {% if result.outcome == 'Success' %}
-                                                <span class="badge badge-large bg-success shadow-sm" 
-                                                      data-bs-toggle="tooltip" 
-                                                      data-bs-placement="top" 
-                                                      title="Translation completed successfully">
-                                                    <i class="fas fa-check me-1"></i>Success
-                                                </span>
-                                            {% elif result.outcome == 'Partial' %}
-                                                <span class="badge badge-large bg-warning shadow-sm" 
-                                                      data-bs-toggle="tooltip" 
-                                                      data-bs-placement="top" 
-                                                      title="Translation partially successful">
-                                                    <i class="fas fa-exclamation-triangle me-1"></i>Partial
-                                                </span>
-                                            {% elif result.outcome in ['Failed', 'Failure'] %}
-                                                <span class="badge badge-large bg-danger shadow-sm" 
-                                                      data-bs-toggle="tooltip" 
-                                                      data-bs-placement="top" 
-                                                      title="Translation failed">
-                                                    <i class="fas fa-times me-1"></i>{{ result.outcome }}
-                                                </span>
-                                            {% else %}
-                                                <span class="badge badge-large bg-secondary shadow-sm" 
-                                                      data-bs-toggle="tooltip" 
-                                                      data-bs-placement="top" 
-                                                      title="Unknown status">
-                                                    <i class="fas fa-question me-1"></i>{{ result.outcome }}
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if result.accuracy %}
-                                                <div class="d-flex align-items-center">
-                                                    <div class="progress me-2" style="width: 50px; height: 8px;">
-                                                        <div class="progress-bar 
-                                                            {% if result.accuracy >= 80 %}bg-success
-                                                            {% elif result.accuracy >= 60 %}bg-warning
-                                                            {% else %}bg-danger{% endif %}" 
-                                                            style="width: {{ result.accuracy }}%"></div>
-                                                    </div>
-                                                    <small class="fw-bold">{{ "%.1f"|format(result.accuracy) }}%</small>
-                                                </div>
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if result.tested_by %}
-                                                <div class="d-flex align-items-center">
-                                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
-                                                         style="width: 28px; height: 28px; font-size: 0.75rem;">
-                                                        {{ result.tested_by[0]|upper }}
-                                                    </div>
-                                                    <span class="text-truncate-custom">{{ result.tested_by }}</span>
-                                                </div>
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if result.target_language %}
-                                                <span class="badge bg-info">{{ result.target_language }}</span>
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if result.observation %}
-                                                <div class="text-truncate-custom">
-                                                    {{ result.observation }}
-                                                </div>
-                                            {% else %}
-                                                <span class="text-muted">No observation</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if result.created_at %}
-                                                <div>
-                                                    <div class="fw-bold">{{ result.created_at|strftime('%m/%d/%Y') }}</div>
-                                                    <small class="text-muted">{{ result.created_at|strftime('%H:%M') }}</small>
-                                                </div>
-                                            {% else %}
-                                                <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-outline-primary" type="button" 
-                                                        data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <i class="fas fa-ellipsis-v"></i>
-                                                </button>
-                                                <ul class="dropdown-menu">
-                                                    <li>
-                                                        <a class="dropdown-item" href="#" data-result-id="{{ result.id }}">
-                                                            <i class="fas fa-eye me-2"></i>View Details
-                                                        </a>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        {% else %}
-                        <div class="text-center py-5">
-                            <div class="mb-4">
-                                <i class="fas fa-database fa-4x text-muted mb-3"></i>
-                                <h4 class="text-muted mb-2">No Test Results Found</h4>
-                                <p class="text-muted mb-4">Start translating to see your results here!</p>
-                                <div class="d-flex gap-2 justify-content-center">
-                                    <a href="/" class="btn btn-primary">
-                                        <i class="fas fa-language me-2"></i>Single Translation
-                                    </a>
-                                    <a href="{{ url_for('main.mass_translation') }}" class="btn btn-outline-primary">
-                                        <i class="fas fa-file-excel me-2"></i>Mass Translation
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                    <div class="card-footer bg-light">
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-info-circle text-primary me-2"></i>
-                                    <small class="text-muted">
-                                        Showing {{ ((pagination.page - 1) * pagination.per_page + 1) if results|length else 0 }} to 
-                                        {{ (pagination.page - 1) * pagination.per_page + results|length }} of 
-                                        <span id="totalResultsFooter">{{ pagination.total }}</span> results
-                                        {% if pagination.pages > 1 %}(Page {{ pagination.page }} of {{ pagination.pages }}){% endif %}
-                                    </small>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex gap-2 justify-content-end">
-                                    <a href="/api/test-results" class="btn btn-sm btn-outline-secondary" target="_blank">
-                                        <i class="fas fa-code me-1"></i>API JSON
-                                    </a>
-                                    <button class="btn btn-sm btn-outline-primary" type="button" onclick="exportResults()">
-                                        <i class="fas fa-file-excel me-1"></i>Export Excel
-                                    </button>
-                                </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Pagination Controls -->
-                {% if pagination.pages > 1 %}
-                <div class="d-flex justify-content-center mt-4">
-                    <nav aria-label="Test results pagination">
-                        <ul class="pagination pagination-lg">
-                            <!-- Previous button -->
-                            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                                <a class="page-link" href="{% if pagination.has_prev %}{{ url_for('main.view_test_results', page=pagination.prev_num, per_page=pagination.per_page, outcome=current_filters.outcome, language=current_filters.language, q=current_filters.search, sort=current_filters.sort) }}{% else %}#{% endif %}" 
-                                   aria-label="Previous">
-                                    <span aria-hidden="true"><i class="fas fa-chevron-left"></i></span>
-                                </a>
-                            </li>
-                            
-                            <!-- Page numbers -->
-                            {% for page_num in pagination.iter_pages %}
-                                {% if page_num %}
-                                    {% if page_num != pagination.page %}
-                                        <li class="page-item">
-                                            <a class="page-link" href="{{ url_for('main.view_test_results', page=page_num, per_page=pagination.per_page, outcome=current_filters.outcome, language=current_filters.language, q=current_filters.search, sort=current_filters.sort) }}">{{ page_num }}</a>
-                                        </li>
-                                    {% else %}
-                                        <li class="page-item active">
-                                            <span class="page-link">{{ page_num }}</span>
-                                        </li>
-                                    {% endif %}
+        <section class="results-sheet sheet" aria-labelledby="tableTitle">
+            <div class="table-head">
+                <h2 class="table-title" id="tableTitle">Records</h2>
+                <span class="table-count mono">
+                    {{ ((pagination.page - 1) * pagination.per_page + 1) if results|length else 0 }}–{{ (pagination.page - 1) * pagination.per_page + results|length }}
+                    of <span id="totalResultsFooter">{{ pagination.total }}</span>{% if pagination.pages > 1 %} · page {{ pagination.page }} of {{ pagination.pages }}{% endif %}
+                </span>
+            </div>
+
+            {% if results|length %}
+            <div class="table-container">
+                <table class="table table-hover mb-0" id="resultsTable">
+                    <thead class="sticky-top">
+                        <tr>
+                            <th scope="col">ID</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Accuracy</th>
+                            <th scope="col">Tested by</th>
+                            <th scope="col">Language</th>
+                            <th scope="col">Observation</th>
+                            <th scope="col">Created</th>
+                            <th scope="col"><span class="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        <tr class="result-row{% if result.outcome == 'Success' %} table-success-light{% elif result.outcome == 'Partial' %} table-warning-light{% elif result.outcome in ['Failed', 'Failure'] %} table-danger-light{% endif %}" data-result-id="{{ result.id }}">
+                            <td class="mono cell-id" data-label="ID">#{{ result.id }}</td>
+                            <td data-label="Status">
+                                {% if result.outcome == 'Success' %}
+                                    <span class="stamp stamp--success"><i class="fas fa-check" aria-hidden="true"></i>Success</span>
+                                {% elif result.outcome == 'Partial' %}
+                                    <span class="stamp stamp--partial"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i>Partial</span>
+                                {% elif result.outcome in ['Failed', 'Failure'] %}
+                                    <span class="stamp stamp--failed"><i class="fas fa-xmark" aria-hidden="true"></i>Failed</span>
                                 {% else %}
-                                    <li class="page-item disabled">
-                                        <span class="page-link">…</span>
-                                    </li>
+                                    <span class="stamp stamp--unknown"><i class="fas fa-question" aria-hidden="true"></i>{{ result.outcome }}</span>
                                 {% endif %}
-                            {% endfor %}
-                            
-                            <!-- Next button -->
-                            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                                <a class="page-link" href="{% if pagination.has_next %}{{ url_for('main.view_test_results', page=pagination.next_num, per_page=pagination.per_page, outcome=current_filters.outcome, language=current_filters.language, q=current_filters.search, sort=current_filters.sort) }}{% else %}#{% endif %}" 
-                                   aria-label="Next">
-                                    <span aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
-                                </a>
+                            </td>
+                            <td data-label="Accuracy">
+                                {% if result.accuracy %}
+                                    <span class="accuracy-cell">
+                                        <span class="accuracy-bar" aria-hidden="true"><span class="accuracy-fill {% if result.accuracy >= 80 %}is-high{% elif result.accuracy >= 60 %}is-mid{% else %}is-low{% endif %}" style="width: {{ result.accuracy }}%"></span></span>
+                                        <span class="mono">{{ "%.1f"|format(result.accuracy) }}%</span>
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">–</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Tested by">
+                                {% if result.tested_by %}
+                                    <span class="cell-truncate cell-tester" title="{{ result.tested_by }}">{{ result.tested_by }}</span>
+                                {% else %}
+                                    <span class="text-muted">–</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Language">
+                                {% if result.target_language %}
+                                    <span class="mono cell-lang">{{ result.target_language }}</span>
+                                {% else %}
+                                    <span class="text-muted">–</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Observation">
+                                {% if result.observation %}
+                                    <span class="cell-truncate cell-observation" dir="auto" title="{{ result.observation }}">{{ result.observation }}</span>
+                                {% else %}
+                                    <span class="text-muted">No observation</span>
+                                {% endif %}
+                            </td>
+                            <td class="mono cell-date" data-label="Created">
+                                {% if result.created_at %}
+                                    {{ result.created_at|strftime('%Y-%m-%d') }} <span class="text-muted">{{ result.created_at|strftime('%H:%M') }}</span>
+                                {% else %}
+                                    <span class="text-muted">–</span>
+                                {% endif %}
+                            </td>
+                            <td class="cell-actions">
+                                <div class="dropdown">
+                                    <button class="btn btn-quiet btn-sm icon-btn" type="button"
+                                            data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions for result #{{ result.id }}">
+                                        <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item" href="#" data-result-id="{{ result.id }}">
+                                                <i class="fas fa-eye me-2" aria-hidden="true"></i>View details
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% elif filtered %}
+            <div class="empty-state">
+                <span class="empty-mark" aria-hidden="true">{% include "partials/reg-mark.html" %}</span>
+                <h3>No results match these filters</h3>
+                <p>Try another search, outcome or language, or clear the filters to see every record.</p>
+                <button type="button" class="btn btn-outline-primary" onclick="clearFilters()">
+                    <i class="fas fa-times me-2" aria-hidden="true"></i>Clear filters
+                </button>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <span class="empty-mark" aria-hidden="true">{% include "partials/reg-mark.html" %}</span>
+                <h3>No test results yet</h3>
+                <p>Translate a label and save a review, or run a mass translation. Every result lands here.</p>
+                <div class="empty-actions">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                        <i class="fas fa-language me-2" aria-hidden="true"></i>Single translation
+                    </a>
+                    <a href="{{ url_for('main.mass_translation') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-file-excel me-2" aria-hidden="true"></i>Mass translation
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="table-foot">
+                <span class="table-count">Filters, sorting and paging run on the server.</span>
+                <a href="/api/test-results" class="btn btn-quiet btn-sm" target="_blank" rel="noopener">
+                    <i class="fas fa-code me-1" aria-hidden="true"></i>API JSON
+                </a>
+            </div>
+        </section>
+
+        <!-- Pagination Controls -->
+        {% if pagination.pages > 1 %}
+        <div class="pager">
+            <nav aria-label="Test results pagination">
+                <ul class="pagination">
+                    <!-- Previous button -->
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{% if pagination.has_prev %}{{ url_for('main.view_test_results', page=pagination.prev_num, per_page=pagination.per_page, outcome=current_filters.outcome, language=current_filters.language, q=current_filters.search, sort=current_filters.sort) }}{% else %}#{% endif %}"
+                           aria-label="Previous">
+                            <span aria-hidden="true"><i class="fas fa-chevron-left"></i></span>
+                        </a>
+                    </li>
+
+                    <!-- Page numbers -->
+                    {% for page_num in pagination.iter_pages %}
+                        {% if page_num %}
+                            {% if page_num != pagination.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('main.view_test_results', page=page_num, per_page=pagination.per_page, outcome=current_filters.outcome, language=current_filters.language, q=current_filters.search, sort=current_filters.sort) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active" aria-current="page">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
                             </li>
-                        </ul>
-                    </nav>
-                </div>
-                
-                <!-- Per-page selector -->
-                <div class="d-flex justify-content-center mt-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <small class="text-muted">Records per page:</small>
-                        <select class="form-select form-select-sm" style="width: auto;" onchange="changePerPage(this.value)">
-                            <option value="25" {% if pagination.per_page == 25 %}selected{% endif %}>25</option>
-                            <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
-                            <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100</option>
-                            <option value="200" {% if pagination.per_page == 200 %}selected{% endif %}>200</option>
-                        </select>
-                    </div>
-                </div>
-                {% endif %}
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- Next button -->
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{% if pagination.has_next %}{{ url_for('main.view_test_results', page=pagination.next_num, per_page=pagination.per_page, outcome=current_filters.outcome, language=current_filters.language, q=current_filters.search, sort=current_filters.sort) }}{% else %}#{% endif %}"
+                           aria-label="Next">
+                            <span aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- Per-page selector -->
+            <div class="per-page">
+                <label for="perPageSelect" class="form-label">Records per page</label>
+                <select class="form-select form-select-sm" id="perPageSelect" onchange="changePerPage(this.value)">
+                    <option value="25" {% if pagination.per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100</option>
+                    <option value="200" {% if pagination.per_page == 200 %}selected{% endif %}>200</option>
+                </select>
             </div>
         </div>
-    </div>
-
+        {% endif %}
     </main>
 
 {% include "partials/footer.html" %}
@@ -453,9 +291,7 @@
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title text-primary" id="resultDetailsModalLabel">
-                        <i class="fas fa-eye me-2"></i>Test Result Details
-                    </h5>
+                    <h2 class="modal-title" id="resultDetailsModalLabel">Result details</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="resultDetailsContent">
@@ -466,7 +302,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -668,47 +504,29 @@
                 if (data.success && data.results && data.results.length > 0) {
                     const result = data.results[0];
                     content.innerHTML = `
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6 class="text-primary">Basic Information</h6>
-                                <table class="table table-sm">
-                                    <tr><td><strong>ID:</strong></td><td>#${result.id}</td></tr>
-                                    <tr><td><strong>Outcome:</strong></td><td>
-                                        <span class="badge ${getStatusBadgeClass(result.outcome)}">
-                                            ${result.outcome}
-                                        </span>
-                                    </td></tr>
-                                    <tr><td><strong>Accuracy:</strong></td><td>${result.accuracy ? result.accuracy.toFixed(1) + '%' : '-'}</td></tr>
-                                    <tr><td><strong>Tested By:</strong></td><td>${result.tested_by || '-'}</td></tr>
-                                    <tr><td><strong>Language:</strong></td><td>${result.target_language || '-'}</td></tr>
-                                    <tr><td><strong>Session:</strong></td><td>${result.session_id || '-'}</td></tr>
-                                    <tr><td><strong>Created:</strong></td><td>${formatDateTime(result.created_at)}</td></tr>
-                                </table>
-                            </div>
-                            <div class="col-md-6">
-                                <h6 class="text-primary">Content</h6>
-                                <div class="mb-3">
-                                    <label class="form-label text-primary"><strong>Original Text:</strong></label>
-                                    <div class="form-control" style="height: auto; min-height: 60px; max-height: 120px; overflow-y: auto;">
-                                        ${escapeHtml(result.text_to_translate || 'No original text recorded')}
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label"><strong>Translated Text:</strong></label>
-                                    <div class="form-control" style="height: auto; min-height: 60px; max-height: 120px; overflow-y: auto;">
-                                        ${escapeHtml(result.translated_text || 'No translation recorded')}
-                                    </div>
-                                </div>
-                            </div>
+                        <dl class="detail-list">
+                            <div><dt>ID</dt><dd class="mono">#${result.id}</dd></div>
+                            <div><dt>Outcome</dt><dd>${getStatusStamp(result.outcome)}</dd></div>
+                            <div><dt>Accuracy</dt><dd class="mono">${result.accuracy ? result.accuracy.toFixed(1) + '%' : '-'}</dd></div>
+                            <div><dt>Tested by</dt><dd>${result.tested_by || '-'}</dd></div>
+                            <div><dt>Language</dt><dd class="mono">${result.target_language || '-'}</dd></div>
+                            <div><dt>Session</dt><dd class="mono">${result.session_id || '-'}</dd></div>
+                            <div><dt>Created</dt><dd class="mono">${formatDateTime(result.created_at)}</dd></div>
+                        </dl>
+                        <div class="detail-texts">
+                            <section>
+                                <h3 class="detail-label">Original text</h3>
+                                <div class="detail-text" dir="auto">${escapeHtml(result.text_to_translate || 'No original text recorded')}</div>
+                            </section>
+                            <section>
+                                <h3 class="detail-label">Translated text</h3>
+                                <div class="detail-text" dir="auto">${escapeHtml(result.translated_text || 'No translation recorded')}</div>
+                            </section>
                         </div>
-                        <div class="row">
-                            <div class="col-12">
-                                <h6 class="text-primary">Observation</h6>
-                                <div class="form-control" style="height: auto; min-height: 80px; max-height: 150px; overflow-y: auto;">
-                                    ${escapeHtml(result.observation || 'No observation recorded')}
-                                </div>
-                            </div>
-                        </div>
+                        <section>
+                            <h3 class="detail-label">Observation</h3>
+                            <div class="detail-text" dir="auto">${escapeHtml(result.observation || 'No observation recorded')}</div>
+                        </section>
                     `;
                 } else {
                     content.innerHTML = '<div class="alert alert-warning">Result details not found or invalid response.</div>';
@@ -723,14 +541,18 @@
             }
         }
 
-        // Helper function to get appropriate badge class
-        function getStatusBadgeClass(outcome) {
-            switch(outcome) {
-                case 'Success': return 'bg-success';
-                case 'Partial': return 'bg-warning';
-                case 'Failed': 
-                case 'Failure': return 'bg-danger';
-                default: return 'bg-secondary';
+        // Outcome as a proof stamp: icon + text, never color alone
+        function getStatusStamp(outcome) {
+            switch (outcome) {
+                case 'Success':
+                    return '<span class="stamp stamp--success"><i class="fas fa-check" aria-hidden="true"></i>Success</span>';
+                case 'Partial':
+                    return '<span class="stamp stamp--partial"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i>Partial</span>';
+                case 'Failed':
+                case 'Failure':
+                    return '<span class="stamp stamp--failed"><i class="fas fa-xmark" aria-hidden="true"></i>Failed</span>';
+                default:
+                    return `<span class="stamp stamp--unknown"><i class="fas fa-question" aria-hidden="true"></i>${escapeHtml(outcome || 'Unknown')}</span>`;
             }
         }
 
