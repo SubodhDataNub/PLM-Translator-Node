@@ -1,0 +1,39 @@
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="masthead">
+        <div class="color-bar" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div class="container">
+            <div class="masthead-bar">
+                <a class="brand" href="{{ url_for('main.index') }}">
+                    <img class="brand-logo" src="{{ url_for('static', filename='images/datanub-logo.png') }}" alt="DataNub" width="102" height="32">
+                    <span class="brand-divider" aria-hidden="true"></span>
+                    <span class="brand-name">DN Translator</span>
+                    <span class="brand-mark" aria-hidden="true">{% include "partials/reg-mark.html" %}</span>
+                </a>
+
+                <div class="theme-switch" role="group" aria-label="Color theme">
+                    <button type="button" class="theme-option" data-theme-choice="system" aria-pressed="true" title="Match system">
+                        <i class="fas fa-circle-half-stroke" aria-hidden="true"></i><span class="visually-hidden">System theme</span>
+                    </button>
+                    <button type="button" class="theme-option" data-theme-choice="light" aria-pressed="false" title="Light">
+                        <i class="fas fa-sun" aria-hidden="true"></i><span class="visually-hidden">Light theme</span>
+                    </button>
+                    <button type="button" class="theme-option" data-theme-choice="dark" aria-pressed="false" title="Dark">
+                        <i class="fas fa-moon" aria-hidden="true"></i><span class="visually-hidden">Dark theme</span>
+                    </button>
+                </div>
+            </div>
+
+            <nav class="tabs" aria-label="Main">
+                <a class="tab{% if active_page == 'single' %} is-active{% endif %}" href="{{ url_for('main.index') }}"{% if active_page == 'single' %} aria-current="page"{% endif %}>
+                    <span class="tab-long">Single translation</span><span class="tab-short">Single</span>
+                </a>
+                <a class="tab{% if active_page == 'mass' %} is-active{% endif %}" href="{{ url_for('main.mass_translation') }}"{% if active_page == 'mass' %} aria-current="page"{% endif %}>
+                    <span class="tab-long">Mass translation</span><span class="tab-short">Mass</span>
+                </a>
+                <a class="tab{% if active_page == 'results' %} is-active{% endif %}" href="{{ url_for('main.view_test_results') }}"{% if active_page == 'results' %} aria-current="page"{% endif %}>
+                    <span class="tab-long">Test results</span><span class="tab-short">Results</span>
+                </a>
+            </nav>
+        </div>
+    </header>
