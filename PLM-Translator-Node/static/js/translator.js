@@ -69,16 +69,10 @@ class DNTranslator {
         this.sessionTranslations = document.getElementById('sessionTranslations');
         this.sessionTests = document.getElementById('sessionTests');
 
-        // Result details: metadata strip, text expansion meter, review panel
+        // Result details: metadata strip, review panel
         this.resultMeta = document.getElementById('resultMeta');
         this.translationTime = document.getElementById('translationTime');
         this.wordCount = document.getElementById('wordCount');
-        this.expansionMeter = document.getElementById('expansionMeter');
-        this.expansionValue = document.getElementById('expansionValue');
-        this.expansionDetail = document.getElementById('expansionDetail');
-        this.expansionTrack = document.getElementById('expansionTrack');
-        this.expansionFill = document.getElementById('expansionFill');
-        this.expansionHint = document.getElementById('expansionHint');
         this.reviewPanel = document.getElementById('reviewPanel');
         this.outcomeChoices = document.querySelectorAll('input[name="outcomeChoice"]');
 
@@ -647,8 +641,8 @@ class DNTranslator {
                 // Add fade-in animation
                 this.translatedTextArea.parentElement.classList.add('fade-in-up');
 
-                // Metadata strip, text expansion meter and review panel (display only)
-                this.showResultDetails(sourceText, data.translated_text, targetLanguage, performance.now() - startedAt);
+                // Metadata strip and review panel (display only)
+                this.showResultDetails(data.translated_text, targetLanguage, performance.now() - startedAt);
 
                 this.addToHistory({
                     sourceText,
@@ -788,10 +782,10 @@ class DNTranslator {
     }
 
     /**
-     * Show the metadata strip and the text expansion meter for a finished translation and open
-     * the review panel. Display only: nothing here touches the request or the saved result.
+     * Show the metadata strip for a finished translation and open the review panel.
+     * Display only: nothing here touches the request or the saved result.
      */
-    showResultDetails(sourceText, translatedText, targetLanguage, elapsedMs) {
+    showResultDetails(translatedText, targetLanguage, elapsedMs) {
         // Lets the browser choose the right glyphs (e.g. Japanese vs Chinese) and voice
         this.translatedTextArea.lang = targetLanguage;
 
@@ -801,8 +795,6 @@ class DNTranslator {
             this.resultMeta.hidden = false;
         }
 
-        this.updateExpansionMeter(sourceText, translatedText);
-
         // Bring the review form forward for the new translation
         this.selectTab('tabReview');
     }
@@ -810,7 +802,6 @@ class DNTranslator {
     hideResultDetails() {
         this.translatedTextArea.removeAttribute('lang');
         if (this.resultMeta) this.resultMeta.hidden = true;
-        if (this.expansionMeter) this.expansionMeter.hidden = true;
     }
 
     /** Count user-perceived characters, so combining marks (Devanagari, Arabic) count once */
@@ -833,46 +824,6 @@ class DNTranslator {
             return Array.from(segmenter.segment(text)).filter((segment) => segment.isWordLike).length;
         }
         return text.trim().split(/\s+/).filter(Boolean).length;
-    }
-
-    /**
-     * Compare the translation's length with the source (characters) so testers can spot labels
-     * that may not fit: up to +15% is fine, +15% to +35% is a warning, above +35% may not fit.
-     */
-    updateExpansionMeter(sourceText, translatedText) {
-        if (!this.expansionMeter) return;
-
-        const sourceLength = this.countCharacters(sourceText);
-        const translatedLength = this.countCharacters(translatedText);
-        if (!sourceLength) {
-            this.expansionMeter.hidden = true;
-            return;
-        }
-
-        const ratio = translatedLength / sourceLength;
-        const change = Math.round((ratio - 1) * 100);
-        const scaleMax = 1.5; // the track runs from 0 to the source length + 50%
-        let state = 'ok';
-        if (change > 35) {
-            state = 'over';
-        } else if (change > 15) {
-            state = 'warn';
-        }
-
-        let sign = '±';
-        if (change > 0) sign = '+';
-        if (change < 0) sign = '−';
-
-        this.expansionMeter.dataset.state = state;
-        this.expansionValue.textContent = `${sign}${Math.abs(change)}%`;
-        this.expansionDetail.textContent = `${sourceLength} → ${translatedLength} characters`;
-        this.expansionFill.style.width = `${Math.min(ratio / scaleMax, 1) * 100}%`;
-        this.expansionTrack.setAttribute('aria-valuenow', String(Math.round(Math.min(ratio, scaleMax) * 100)));
-        this.expansionTrack.setAttribute('aria-valuetext', change === 0
-            ? 'Same length as the source'
-            : `${Math.abs(change)}% ${change > 0 ? 'longer' : 'shorter'} than the source`);
-        this.expansionHint.hidden = state !== 'over';
-        this.expansionMeter.hidden = false;
     }
 
     clearAll() {
@@ -1036,7 +987,6 @@ class DNTranslator {
         this.autoResize(this.translatedTextArea);
         this.updateCharacterCount();
         this.updateResultCharCount();
-        this.updateExpansionMeter(entry.sourceText, entry.translatedText);
         if (this.resultMeta) this.resultMeta.hidden = true; // timing belongs to the original run
         this.validateForm();
         this.updateSaveButtonState();
