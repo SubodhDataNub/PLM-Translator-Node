@@ -506,13 +506,13 @@
                     const result = data.results[0];
                     content.innerHTML = `
                         <dl class="detail-list">
-                            <div><dt>ID</dt><dd class="mono">#${result.id}</dd></div>
+                            <div><dt>ID</dt><dd class="mono">#${escapeHtml(result.id)}</dd></div>
                             <div><dt>Outcome</dt><dd>${getStatusStamp(result.outcome)}</dd></div>
-                            <div><dt>Accuracy</dt><dd class="mono">${result.accuracy ? result.accuracy.toFixed(1) + '%' : '-'}</dd></div>
-                            <div><dt>Tested by</dt><dd>${result.tested_by || '-'}</dd></div>
-                            <div><dt>Language</dt><dd class="mono">${result.target_language || '-'}</dd></div>
-                            <div><dt>Session</dt><dd class="mono">${result.session_id || '-'}</dd></div>
-                            <div><dt>Created</dt><dd class="mono">${formatDateTime(result.created_at)}</dd></div>
+                            <div><dt>Accuracy</dt><dd class="mono">${escapeHtml(result.accuracy ? Number(result.accuracy).toFixed(1) + '%' : '-')}</dd></div>
+                            <div><dt>Tested by</dt><dd>${escapeHtml(result.tested_by || '-')}</dd></div>
+                            <div><dt>Language</dt><dd class="mono">${escapeHtml(result.target_language || '-')}</dd></div>
+                            <div><dt>Session</dt><dd class="mono">${escapeHtml(result.session_id || '-')}</dd></div>
+                            <div><dt>Created</dt><dd class="mono">${escapeHtml(formatDateTime(result.created_at))}</dd></div>
                         </dl>
                         <div class="detail-texts">
                             <section>
@@ -537,7 +537,7 @@
                 document.getElementById('resultDetailsContent').innerHTML = 
                     `<div class="alert alert-danger">
                         <h6>Error loading result details</h6>
-                        <small>${error.message}</small>
+                        <small>${escapeHtml(error.message)}</small>
                     </div>`;
             }
         }
@@ -560,7 +560,7 @@
         // Helper function to escape HTML
         function escapeHtml(text) {
             const div = document.createElement('div');
-            div.textContent = text;
+            div.textContent = text == null ? '' : String(text);
             return div.innerHTML;
         }
 

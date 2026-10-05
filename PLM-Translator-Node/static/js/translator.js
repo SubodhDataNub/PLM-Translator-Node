@@ -3,6 +3,16 @@
  * Frontend JavaScript functionality
  */
 
+// Escape a value for safe insertion into innerHTML, including attribute values
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 class DNTranslator {
     constructor() {
         this.initializeElements();
@@ -924,7 +934,7 @@ class DNTranslator {
         alertDiv.className = `alert alert-${type} alert-dismissible fade show status-message`;
         alertDiv.innerHTML = `
             <i class="fas fa-${this.getAlertIcon(type)} me-2"></i>
-            ${message}
+            ${escapeHtml(message)}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         `;
         
@@ -1213,7 +1223,7 @@ class DNTranslator {
                 this.testResultsContainer.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    ${errorMessage}
+                    ${escapeHtml(errorMessage)}
                     <br>
                     <button class="btn btn-sm btn-outline-light mt-2" onclick="translator.loadTestResults()">
                         <i class="fas fa-sync me-1"></i>Try Again
@@ -1246,10 +1256,10 @@ class DNTranslator {
                 <div class="col-md-6 mb-3">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">Test Result #${result.id || index + 1}</h6>
+                            <h6 class="mb-0">Test Result #${escapeHtml(result.id || index + 1)}</h6>
                             <div class="d-flex gap-2">
-                                <span class="badge ${result.outcome === 'Success' ? 'bg-success' : 'bg-warning'}">${result.outcome}</span>
-                                <button class="btn btn-outline-danger btn-sm delete-result-btn" data-result-id="${result.id}" title="Delete this result">
+                                <span class="badge ${result.outcome === 'Success' ? 'bg-success' : 'bg-warning'}">${escapeHtml(result.outcome)}</span>
+                                <button class="btn btn-outline-danger btn-sm delete-result-btn" data-result-id="${escapeHtml(result.id)}" title="Delete this result">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -1257,29 +1267,29 @@ class DNTranslator {
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-6">
-                                    <strong>Accuracy:</strong> ${result.accuracy || 'N/A'}%
+                                    <strong>Accuracy:</strong> ${escapeHtml(result.accuracy || 'N/A')}%
                                 </div>
                                 <div class="col-6">
-                                    <strong>Tested By:</strong> ${result.tested_by || 'N/A'}
+                                    <strong>Tested By:</strong> ${escapeHtml(result.tested_by || 'N/A')}
                                 </div>
                             </div>
                             <div class="mt-2">
                                 <strong>Observation:</strong>
-                                <p class="text-muted small mb-1">${result.observation || 'No observation provided'}</p>
+                                <p class="text-muted small mb-1">${escapeHtml(result.observation || 'No observation provided')}</p>
                             </div>
                             <div class="mt-2">
                                 <strong>Translation:</strong>
-                                <p class="text-muted small mb-1">${result.text_to_translate ? result.text_to_translate.substring(0, 50) + '...' : 'N/A'} → ${result.translated_text ? result.translated_text.substring(0, 50) + '...' : 'N/A'}</p>
+                                <p class="text-muted small mb-1">${escapeHtml(result.text_to_translate ? result.text_to_translate.substring(0, 50) + '...' : 'N/A')} → ${escapeHtml(result.translated_text ? result.translated_text.substring(0, 50) + '...' : 'N/A')}</p>
                             </div>
                             <div class="mt-2">
                                 <strong>Languages:</strong>
                                 <p class="text-muted small mb-1">
                                     <i class="fas fa-arrow-right me-1"></i>
-                                    ${result.source_language || 'auto-Auto Detected'} → ${result.target_language || 'N/A'}
+                                    ${escapeHtml(result.source_language || 'auto-Auto Detected')} → ${escapeHtml(result.target_language || 'N/A')}
                                 </p>
                             </div>
                             <div class="text-muted small">
-                                <i class="fas fa-clock me-1"></i>${date}
+                                <i class="fas fa-clock me-1"></i>${escapeHtml(date)}
                             </div>
                         </div>
                     </div>
@@ -1391,7 +1401,7 @@ class DNTranslator {
         alertElement.innerHTML = `
             <div class="d-flex align-items-center">
                 <i class="fas ${this.getAlertIcon(type)} me-2"></i>
-                ${message}
+                ${escapeHtml(message)}
                 <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         `;
@@ -1440,12 +1450,11 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 // Handle online/offline status
+// Reuse the page's translator; constructing another would bind every listener twice
 window.addEventListener('online', () => {
-    const translator = new DNTranslator();
-    translator.showAlert('Connection restored. You can now translate text.', 'success');
+    translator?.showAlert('Connection restored. You can now translate text.', 'success');
 });
 
 window.addEventListener('offline', () => {
-    const translator = new DNTranslator();
-    translator.showAlert('You are currently offline. Translation services are unavailable.', 'warning');
+    translator?.showAlert('You are currently offline. Translation services are unavailable.', 'warning');
 });
