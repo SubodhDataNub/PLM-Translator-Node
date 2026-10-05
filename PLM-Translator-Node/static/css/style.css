@@ -145,8 +145,9 @@ a:hover {
     filter: var(--logo-filter);
 }
 
-/* Roboto Slab in the wordmark's navy, same cap height, weight and baseline as "DataNub" */
+/* Roboto Slab in the icon's lighter blue, same cap height, weight and baseline as "DataNub" */
 .brand-name {
+    color: var(--brand-accent);
     margin-top: calc(var(--logo-h) * 0.6365 - 0.888em);   /* 0.888em = Roboto Slab baseline in a 1.0 line box */
     font-family: var(--font-brand);
     font-size: calc(var(--logo-h) * 0.4667);              /* cap height 0.711em = the wordmark's */
