@@ -119,9 +119,16 @@ a:hover {
 }
 
 .brand {
+    /*
+     * Logo and product name as one wordmark: "DataNub Translator".
+     * Everything scales from the logo height. Measured on the logo PNG (641px tall): the
+     * wordmark's cap height is 33.2% of the image, its baseline sits at 63.65% and there is
+     * 10.45% of empty space after the "b".
+     */
+    --logo-h: 42px;
     display: inline-flex;
-    align-items: center;
-    gap: 12px;
+    align-items: flex-start;
+    gap: calc(var(--logo-h) * 0.026);   /* plus the PNG's own padding = one word space */
     margin-right: auto;
     color: var(--brand-ink);
     text-decoration: none;
@@ -134,19 +141,19 @@ a:hover {
 .brand-logo {
     display: block;
     width: auto;
-    height: 42px;
+    height: var(--logo-h);
     filter: var(--logo-filter);
 }
 
-/* Slab serif in the logo's navy, so "Translator" reads as part of the DataNub wordmark */
+/* Roboto Slab in the wordmark's navy, same cap height, weight and baseline as "DataNub" */
 .brand-name {
+    margin-top: calc(var(--logo-h) * 0.6365 - 0.888em);   /* 0.888em = Roboto Slab baseline in a 1.0 line box */
     font-family: var(--font-brand);
-    position: relative;
-    top: -2px;              /* shares the wordmark's baseline */
-    font-size: 1.1875rem;   /* cap height matches "DataNub" in the 42px logo */
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    font-size: calc(var(--logo-h) * 0.4667);              /* cap height 0.711em = the wordmark's */
+    font-weight: 700;
+    letter-spacing: 0;
     line-height: 1;
+    white-space: nowrap;
 }
 
 .topnav {
@@ -2076,8 +2083,7 @@ textarea.form-control {
 @media (max-width: 640px) {
     .topnav-long { display: none; }
     .topnav-short { display: inline; }
-    .brand-logo { height: 34px; }
-    .brand-name { font-size: 0.9375rem; }
+    .brand { --logo-h: 34px; }
     .pane { padding: var(--space-3) var(--space-4); }
     .language-options { grid-template-columns: minmax(0, 1fr); }
     .filter-bar { grid-template-columns: minmax(0, 1fr); }
