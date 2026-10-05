@@ -7,12 +7,12 @@
 <body>
 {% include "partials/header.html" %}
 
-    <main id="main" class="container">
-        <section class="error-sheet sheet crop-marks" aria-labelledby="errorTitle">
-            <p class="eyebrow">Error <span class="mono">{{ error_code }}</span></p>
+    <main id="main" class="page">
+        <section class="error-card" aria-labelledby="errorTitle">
+            <span class="error-code mono">{{ error_code }}</span>
             <h1 id="errorTitle">{{ error_message }}</h1>
-            <p class="lede">The page you asked for isn't on this proof. Head back and start a new translation.</p>
-            <a class="btn btn-primary" href="{{ url_for('main.index') }}">
+            <p class="lede">The page you asked for isn't here. Head back and start a new translation.</p>
+            <a class="btn btn-primary btn-pill" href="{{ url_for('main.index') }}">
                 <i class="fas fa-language me-2" aria-hidden="true"></i>Go to Single translation
             </a>
         </section>

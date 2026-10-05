@@ -8,49 +8,48 @@
 {% include "partials/header.html" %}
 
     {% set filtered = current_filters.outcome or current_filters.language or current_filters.search %}
-    <main id="main" class="container">
-        <header class="page-head page-head--actions">
+    <main id="main" class="page">
+        <header class="page-intro">
             <div>
-                <p class="eyebrow eyebrow--mark">Proof · review log</p>
                 <h1>Test results</h1>
                 <p class="lede">Every saved review and mass translation row. Filter, inspect or export.</p>
             </div>
             <div class="head-actions">
-                <button type="button" class="btn btn-outline-primary" onclick="exportResults()">
-                    <i class="fas fa-download me-2" aria-hidden="true"></i>Export Excel
-                </button>
-                <button type="button" class="btn btn-quiet" onclick="refreshResults()">
+                <button type="button" class="btn btn-quiet btn-pill" onclick="refreshResults()">
                     <i class="fas fa-sync-alt me-2" aria-hidden="true"></i>Refresh
+                </button>
+                <button type="button" class="btn btn-primary btn-pill" onclick="exportResults()">
+                    <i class="fas fa-download me-2" aria-hidden="true"></i>Export Excel
                 </button>
             </div>
         </header>
 
         <!-- Statistics -->
-        <section class="stat-strip sheet" aria-label="Statistics">
-            <div class="stat">
+        <section class="stat-grid stat-grid--5" aria-label="Statistics">
+            <div class="stat-card">
                 <span class="stat-label">{% if filtered %}Matching{% else %}Records{% endif %}</span>
                 <span class="stat-value mono">{{ stats.total }}</span>
             </div>
-            <div class="stat">
-                <span class="stat-label"><i class="fas fa-check stamp--success" aria-hidden="true"></i>Successful</span>
+            <div class="stat-card stat-card--success">
+                <span class="stat-label"><i class="fas fa-check" aria-hidden="true"></i>Successful</span>
                 <span class="stat-value mono" id="successResults">{{ stats.success }}</span>
             </div>
-            <div class="stat">
-                <span class="stat-label"><i class="fas fa-triangle-exclamation stamp--partial" aria-hidden="true"></i>Partial</span>
+            <div class="stat-card stat-card--partial">
+                <span class="stat-label"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i>Partial</span>
                 <span class="stat-value mono" id="partialResults">{{ stats.partial }}</span>
             </div>
-            <div class="stat">
-                <span class="stat-label"><i class="fas fa-xmark stamp--failed" aria-hidden="true"></i>Failed</span>
+            <div class="stat-card stat-card--failed">
+                <span class="stat-label"><i class="fas fa-xmark" aria-hidden="true"></i>Failed</span>
                 <span class="stat-value mono" id="failedResults">{{ stats.failed }}</span>
             </div>
-            <div class="stat">
+            <div class="stat-card">
                 <span class="stat-label">Success rate</span>
                 <span class="stat-value mono" id="successRate">{{ "%.1f"|format(stats.success_rate) }}%</span>
             </div>
         </section>
 
         <!-- Filters and Search -->
-        <section class="filter-bar sheet" role="search" aria-label="Filter test results">
+        <section class="filter-bar panel" role="search" aria-label="Filter test results">
             <div class="filter-field filter-field--search">
                 <label for="searchInput" class="form-label">Search <span class="optional">press Enter</span></label>
                 <div class="input-icon">
@@ -92,14 +91,14 @@
                 </select>
             </div>
             <div class="filter-field filter-field--action">
-                <button type="button" class="btn btn-quiet" onclick="clearFilters()">
+                <button type="button" class="btn btn-quiet btn-pill" onclick="clearFilters()">
                     <i class="fas fa-times me-2" aria-hidden="true"></i>Clear
                 </button>
             </div>
         </section>
 
         <!-- Results Table -->
-        <section class="results-sheet sheet" aria-labelledby="tableTitle">
+        <section class="results-card" aria-labelledby="tableTitle">
             <div class="table-head">
                 <h2 class="table-title" id="tableTitle">Records</h2>
                 <span class="table-count mono">
@@ -198,23 +197,23 @@
             </div>
             {% elif filtered %}
             <div class="empty-state">
-                <span class="empty-mark" aria-hidden="true">{% include "partials/reg-mark.html" %}</span>
+                <span class="empty-mark" aria-hidden="true"><i class="fas fa-filter"></i></span>
                 <h3>No results match these filters</h3>
                 <p>Try another search, outcome or language, or clear the filters to see every record.</p>
-                <button type="button" class="btn btn-outline-primary" onclick="clearFilters()">
+                <button type="button" class="btn btn-tonal btn-pill" onclick="clearFilters()">
                     <i class="fas fa-times me-2" aria-hidden="true"></i>Clear filters
                 </button>
             </div>
             {% else %}
             <div class="empty-state">
-                <span class="empty-mark" aria-hidden="true">{% include "partials/reg-mark.html" %}</span>
+                <span class="empty-mark" aria-hidden="true"><i class="fas fa-clipboard-list"></i></span>
                 <h3>No test results yet</h3>
                 <p>Translate a label and save a review, or run a mass translation. Every result lands here.</p>
                 <div class="empty-actions">
-                    <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-primary btn-pill">
                         <i class="fas fa-language me-2" aria-hidden="true"></i>Single translation
                     </a>
-                    <a href="{{ url_for('main.mass_translation') }}" class="btn btn-outline-primary">
+                    <a href="{{ url_for('main.mass_translation') }}" class="btn btn-tonal btn-pill">
                         <i class="fas fa-file-excel me-2" aria-hidden="true"></i>Mass translation
                     </a>
                 </div>
@@ -303,7 +302,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-quiet" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-tonal btn-pill" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>

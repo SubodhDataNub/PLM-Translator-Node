@@ -23,6 +23,8 @@ class DNTranslator {
         this.initializeLanguageRefresh();
         this.handleOutcomeChange(); // Initialize outcome-dependent field states
         this.updateSaveButtonState(); // Initialize save button state
+        this.bindTabs();
+        this.renderHistory();
     }
 
     initializeElements() {
@@ -33,7 +35,8 @@ class DNTranslator {
         this.languageSearchInput = document.getElementById('languageSearchInput');
         this.languageDropdown = document.querySelector('.language-dropdown');
         this.languageOptions = document.getElementById('languageOptions');
-        this.dropdownArrow = document.querySelector('.language-selector .fa-chevron-down');
+        this.dropdownArrow = document.querySelector('.language-selector .lang-toggle');
+        this.detectedLanguage = document.getElementById('detectedLanguage');
         this.terminologyNote = document.getElementById('terminologyNote');
 
         // Test result elements
@@ -79,6 +82,13 @@ class DNTranslator {
         this.reviewPanel = document.getElementById('reviewPanel');
         this.outcomeChoices = document.querySelectorAll('input[name="outcomeChoice"]');
 
+        // Review / Recent tabs and this tab's translation history (memory only)
+        this.wsTabs = document.querySelectorAll('.ws-tab');
+        this.historyList = document.getElementById('historyList');
+        this.historyEmpty = document.getElementById('historyEmpty');
+        this.recentCount = document.getElementById('recentCount');
+        this.history = [];
+
         // Form
         this.form = document.getElementById('translatorForm');
         
@@ -111,6 +121,7 @@ class DNTranslator {
         // Text input events
         this.sourceTextArea.addEventListener('input', () => {
             this.updateCharacterCount();
+            this.autoResize(this.sourceTextArea);
             this.validateForm();
         });
 
@@ -194,6 +205,9 @@ class DNTranslator {
                 
                 // Toggle dropdown visibility
                 if (this.languageDropdown.classList.contains('d-none')) {
+                    // Start each search from the full list
+                    this.languageSearchInput.value = '';
+                    this.filterLanguageOptions();
                     this.showLanguageDropdown();
                     // Focus input for typing
                     setTimeout(() => {
@@ -356,7 +370,6 @@ class DNTranslator {
             this.accuracyInput.disabled = true;
             this.accuracyInput.required = false;
             this.accuracyInput.value = '0'; // Set to 0 for failures
-            this.accuracyInput.style.backgroundColor = '#f8f9fa'; // Light gray background
             
             // Update the label to indicate it's disabled
             const accuracyLabel = document.querySelector('label[for="accuracy"]');
@@ -368,12 +381,11 @@ class DNTranslator {
             this.accuracyInput.disabled = false;
             this.accuracyInput.required = true;
             this.accuracyInput.value = ''; // Clear the value so user can input
-            this.accuracyInput.style.backgroundColor = ''; // Remove background color
             
             // Restore the original label
             const accuracyLabel = document.querySelector('label[for="accuracy"]');
             if (accuracyLabel) {
-                accuracyLabel.innerHTML = 'Accuracy (%) <span class="text-danger">*</span>';
+                accuracyLabel.innerHTML = 'Accuracy (%) <span class="req">*</span>';
             }
         }
     }
@@ -416,24 +428,16 @@ class DNTranslator {
 
     showLanguageDropdown() {
         this.languageDropdown.classList.remove('d-none');
-        // Add class to body to disable card hover effects while dropdown is open
-        document.body.classList.add('language-dropdown-active');
-        
-        // Rotate arrow when dropdown is open
+        // The toggle's chevron turns via CSS while the list is open
         if (this.dropdownArrow) {
-            this.dropdownArrow.style.transform = 'rotate(180deg)';
-            this.dropdownArrow.style.transition = 'transform 0.3s ease';
+            this.dropdownArrow.setAttribute('aria-expanded', 'true');
         }
     }
 
     hideLanguageDropdown() {
         this.languageDropdown.classList.add('d-none');
-        // Remove class from body to re-enable card hover effects
-        document.body.classList.remove('language-dropdown-active');
-        
-        // Reset arrow rotation when dropdown is closed
         if (this.dropdownArrow) {
-            this.dropdownArrow.style.transform = 'rotate(0deg)';
+            this.dropdownArrow.setAttribute('aria-expanded', 'false');
         }
     }
 
@@ -443,12 +447,6 @@ class DNTranslator {
         this.hideLanguageDropdown();
         this.validateForm();
         this.updateSelectedLanguageDisplay();
-        
-        // Add visual feedback
-        this.languageSearchInput.style.borderColor = 'var(--success)';
-        setTimeout(() => {
-            this.languageSearchInput.style.borderColor = '';
-        }, 1000);
     }
 
     handleKeyboardNavigation(e) {
@@ -523,23 +521,32 @@ class DNTranslator {
         if (option) {
             const text = option.getAttribute('data-text');
             this.selectLanguageOption(option.getAttribute('data-value'), text);
-            
-            // Add visual feedback to the clicked button
-            this.quickLangBtns.forEach(btn => btn.classList.remove('active'));
-            const clickedBtn = document.querySelector(`[data-lang="${langCode}"]`);
-            if (clickedBtn) {
-                clickedBtn.classList.add('active');
-                setTimeout(() => clickedBtn.classList.remove('active'), 1000);
-            }
         }
     }
 
+    /**
+     * Highlight the quick chip for the selected language. A language without a quick chip
+     * gets its own highlighted chip in front of them.
+     */
     updateSelectedLanguageDisplay() {
         const selectedOption = this.targetLanguageSelect.selectedOptions[0];
-        if (selectedOption && selectedOption.value) {
+        const value = selectedOption ? selectedOption.value : '';
+        let matched = false;
+
+        this.quickLangBtns.forEach((btn) => {
+            const lang = btn.getAttribute('data-lang');
+            const isSelected = Boolean(value) && (lang === value || lang.split('-')[0] === value);
+            btn.classList.toggle('is-active', isSelected);
+            btn.setAttribute('aria-pressed', String(isSelected));
+            if (isSelected) matched = true;
+        });
+
+        if (value && !matched) {
             this.selectedLanguage.textContent = selectedOption.textContent;
+            this.selectedLanguage.hidden = false;
         } else {
-            this.selectedLanguage.textContent = 'Not selected';
+            this.selectedLanguage.textContent = '';
+            this.selectedLanguage.hidden = true;
         }
     }
 
@@ -620,6 +627,8 @@ class DNTranslator {
                 
                 // Display translation result
                 this.translatedTextArea.value = data.translated_text;
+                this.autoResize(this.translatedTextArea);
+                this.setDetectedLanguage(data.source_language);
                 this.showTerminologyNote(data.terminology, data.label_type);
                 this.copyBtn.disabled = false;
                 
@@ -641,6 +650,17 @@ class DNTranslator {
                 // Metadata strip, text expansion meter and review panel (display only)
                 this.showResultDetails(sourceText, data.translated_text, targetLanguage, performance.now() - startedAt);
 
+                this.addToHistory({
+                    sourceText,
+                    translatedText: data.translated_text,
+                    sourceCode: data.source_language,
+                    targetCode: targetLanguage,
+                    targetName: targetLangName,
+                    terminology: data.terminology,
+                    labelType: data.label_type,
+                    result: { ...this.lastTranslationResult }
+                });
+
             } else {
                 throw new Error(data.error || 'Translation failed');
             }
@@ -657,6 +677,7 @@ class DNTranslator {
             
             // Clear result area
             this.translatedTextArea.value = '';
+            this.autoResize(this.translatedTextArea);
             this.copyBtn.disabled = true;
             this.hideResultDetails();
         } finally {
@@ -678,16 +699,13 @@ class DNTranslator {
                 await navigator.clipboard.writeText(textToCopy);
                 this.showAlert('Translation copied to clipboard successfully!', 'success');
                 
-                // Temporary button feedback
-                const originalText = this.copyBtn.innerHTML;
-                this.copyBtn.innerHTML = '<i class="fas fa-check me-2"></i>Copied!';
-                this.copyBtn.classList.add('btn-primary');
-                this.copyBtn.classList.remove('btn-outline-primary');
-                
+                // Temporary button feedback: the copy icon turns into a check
+                this.copyBtn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i>';
+                this.copyBtn.classList.add('is-done');
+
                 setTimeout(() => {
-                    this.copyBtn.innerHTML = originalText;
-                    this.copyBtn.classList.remove('btn-primary');
-                    this.copyBtn.classList.add('btn-outline-primary');
+                    this.copyBtn.innerHTML = '<i class="fas fa-copy" aria-hidden="true"></i>';
+                    this.copyBtn.classList.remove('is-done');
                 }, 2000);
                 
             } else {
@@ -785,9 +803,8 @@ class DNTranslator {
 
         this.updateExpansionMeter(sourceText, translatedText);
 
-        if (this.reviewPanel) {
-            this.reviewPanel.open = true;
-        }
+        // Bring the review form forward for the new translation
+        this.selectTab('tabReview');
     }
 
     hideResultDetails() {
@@ -869,6 +886,9 @@ class DNTranslator {
         // Clear all fields
         this.sourceTextArea.value = '';
         this.translatedTextArea.value = '';
+        this.autoResize(this.sourceTextArea);
+        this.autoResize(this.translatedTextArea);
+        this.setDetectedLanguage(null);
         this.showTerminologyNote(null);
         this.hideResultDetails();
         this.targetLanguageSelect.value = '';
@@ -900,6 +920,129 @@ class DNTranslator {
         this.sourceTextArea.focus();
         
         this.showAlert('All fields have been cleared.', 'info');
+    }
+
+    /** Grow a pane's text box with its content (CSS sets the minimum) and shrink the type for long text */
+    autoResize(textarea) {
+        if (!textarea) return;
+        textarea.classList.toggle('is-long', textarea.value.length > 160);
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+
+    /** Show the language the server detected in the source pane's chip (null resets it) */
+    setDetectedLanguage(code) {
+        if (!this.detectedLanguage) return;
+        if (!code || code === 'auto') {
+            this.detectedLanguage.textContent = 'Detect language';
+            return;
+        }
+        this.detectedLanguage.textContent = `${this.getLanguageName(code)} · detected`;
+    }
+
+    getLanguageName(code) {
+        if (!code || code === 'auto') return 'Detected';
+        const base = String(code).split('-')[0];
+        const language = this.languages.find((lang) => lang.key === code)
+            || this.languages.find((lang) => lang.key && lang.key.split('-')[0] === base);
+        return language && language.text ? language.text : code;
+    }
+
+    /** Review / Recent tabs: click, or arrow keys while a tab has focus */
+    bindTabs() {
+        const tabs = Array.from(this.wsTabs);
+        tabs.forEach((tab, index) => {
+            tab.addEventListener('click', () => this.selectTab(tab.id));
+            tab.addEventListener('keydown', (e) => {
+                if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                e.preventDefault();
+                const next = tabs[(index + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+                this.selectTab(next.id);
+                next.focus();
+            });
+        });
+    }
+
+    selectTab(tabId) {
+        this.wsTabs.forEach((tab) => {
+            const isActive = tab.id === tabId;
+            tab.classList.toggle('is-active', isActive);
+            tab.setAttribute('aria-selected', String(isActive));
+            tab.tabIndex = isActive ? 0 : -1;
+            const panel = document.getElementById(tab.getAttribute('aria-controls'));
+            if (panel) panel.hidden = !isActive;
+        });
+    }
+
+    /** Keep the last translations of this tab (memory only; nothing is stored in the browser) */
+    addToHistory(entry) {
+        this.history.unshift(entry);
+        this.history = this.history.slice(0, 12);
+        this.renderHistory();
+    }
+
+    renderHistory() {
+        if (!this.historyList) return;
+        this.historyList.replaceChildren();
+        this.recentCount.textContent = this.history.length;
+        this.historyEmpty.hidden = this.history.length > 0;
+
+        this.history.forEach((entry, index) => {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'history-card';
+            card.title = 'Load this translation again';
+
+            const route = document.createElement('span');
+            route.className = 'chip chip--sm is-active';
+            const arrow = document.createElement('i');
+            arrow.className = 'fas fa-chevron-right';
+            arrow.setAttribute('aria-hidden', 'true');
+            route.append(this.getLanguageName(entry.sourceCode), arrow, entry.targetName);
+
+            const source = document.createElement('span');
+            source.className = 'history-source';
+            source.dir = 'auto';
+            source.textContent = entry.sourceText;
+
+            const translated = document.createElement('span');
+            translated.className = 'history-target';
+            translated.dir = 'auto';
+            translated.lang = entry.targetCode;
+            translated.textContent = entry.translatedText;
+
+            card.append(route, source, translated);
+            card.addEventListener('click', () => this.restoreHistory(index));
+            this.historyList.appendChild(card);
+        });
+    }
+
+    /** Load a recent translation back into the panes so it can be copied or reviewed */
+    restoreHistory(index) {
+        const entry = this.history[index];
+        if (!entry) return;
+
+        this.sourceTextArea.value = entry.sourceText;
+        const option = this.languageOptions.querySelector(`[data-value="${CSS.escape(entry.targetCode)}"]`);
+        this.selectLanguageOption(entry.targetCode, option ? option.getAttribute('data-text') : entry.targetName);
+        this.translatedTextArea.value = entry.translatedText;
+        this.translatedTextArea.lang = entry.targetCode;
+        this.lastTranslationResult = { ...entry.result };
+
+        this.setDetectedLanguage(entry.sourceCode);
+        this.showTerminologyNote(entry.terminology, entry.labelType);
+        this.copyBtn.disabled = false;
+        this.autoResize(this.sourceTextArea);
+        this.autoResize(this.translatedTextArea);
+        this.updateCharacterCount();
+        this.updateResultCharCount();
+        this.updateExpansionMeter(entry.sourceText, entry.translatedText);
+        if (this.resultMeta) this.resultMeta.hidden = true; // timing belongs to the original run
+        this.validateForm();
+        this.updateSaveButtonState();
+
+        this.selectTab('tabReview');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     setLoadingState(loading) {
@@ -1397,7 +1540,8 @@ class DNTranslator {
         // Create alert element
         const alertElement = document.createElement('div');
         alertElement.className = `alert alert-${type} alert-dismissible fade show`;
-        alertElement.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        // Snackbar at the bottom centre, clear of the top navigation
+        alertElement.style.cssText = 'position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 9999; width: max-content; min-width: min(300px, calc(100vw - 32px)); max-width: calc(100vw - 32px);';
         alertElement.innerHTML = `
             <div class="d-flex align-items-center">
                 <i class="fas ${this.getAlertIcon(type)} me-2"></i>

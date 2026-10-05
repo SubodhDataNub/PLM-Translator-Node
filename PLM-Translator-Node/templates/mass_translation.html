@@ -7,11 +7,15 @@
 <body>
 {% include "partials/header.html" %}
 
-    <main id="main" class="container">
-        <header class="page-head">
-            <p class="eyebrow eyebrow--mark">Proof · batch run</p>
-            <h1>Mass translation</h1>
-            <p class="lede">Translate a spreadsheet of label texts into several languages at once. Every row is saved to Test results.</p>
+    <main id="main" class="page">
+        <header class="page-intro">
+            <div>
+                <h1>Mass translation</h1>
+                <p class="lede">Translate a spreadsheet of label texts into several languages at once. Every row is saved to Test results.</p>
+            </div>
+            <button type="button" class="btn btn-tonal btn-pill" id="downloadTemplateBtn">
+                <i class="fas fa-download me-2" aria-hidden="true"></i>Download Template
+            </button>
         </header>
 
         <!-- Upload Form -->
@@ -19,21 +23,22 @@
             <div class="mass-layout">
                 <div class="mass-main">
                     <!-- Step 1: spreadsheet -->
-                    <section class="mass-step" aria-labelledby="stepFileTitle">
-                        <h2 class="step-title" id="stepFileTitle"><span class="step-num">01</span>Spreadsheet</h2>
+                    <section class="panel" aria-labelledby="stepFileTitle">
+                        <div class="panel-head">
+                            <h2 class="panel-title" id="stepFileTitle"><span class="step-num">1</span>Spreadsheet</h2>
+                        </div>
 
                         <!-- File Upload Area -->
                         <div class="upload-area" id="uploadArea" role="button" tabindex="0">
                             <input type="file" class="d-none" id="fileInput" name="file" accept=".xlsx,.xls">
-                            <span class="diecut-scissors" aria-hidden="true"><i class="fas fa-scissors"></i></span>
                             <div id="uploadContent">
-                                <i class="fas fa-file-arrow-up upload-icon" aria-hidden="true"></i>
+                                <span class="upload-icon" aria-hidden="true"><i class="fas fa-cloud-arrow-up"></i></span>
                                 <p class="upload-title">Drop your Excel file here</p>
                                 <p class="upload-sub">or <span class="upload-link">browse your files</span></p>
-                                <p class="upload-hint mono">.xlsx or .xls · text in a “Phrase Text” column</p>
+                                <p class="upload-hint">.xlsx or .xls · text in a “Phrase Text” column</p>
                             </div>
                             <div id="fileInfo" class="d-none">
-                                <i class="fas fa-file-excel upload-icon upload-icon--ready" aria-hidden="true"></i>
+                                <span class="upload-icon upload-icon--ready" aria-hidden="true"><i class="fas fa-file-excel"></i></span>
                                 <p id="fileName" class="upload-title"></p>
                                 <p class="upload-hint mono" id="fileSize"></p>
                                 <p class="upload-sub">Click or drop another file to replace it</p>
@@ -90,7 +95,7 @@
 
                             <!-- Validation Action Button -->
                             <div class="validation-actions">
-                                <button type="button" class="btn btn-outline-primary btn-sm" id="validateFileBtn">
+                                <button type="button" class="btn btn-tonal btn-pill btn-sm" id="validateFileBtn">
                                     <i class="fas fa-search me-1"></i>Validate File Structure
                                 </button>
                             </div>
@@ -98,9 +103,9 @@
                     </section>
 
                     <!-- Step 2: target languages -->
-                    <section class="mass-step compact-language-selection" aria-labelledby="stepLangTitle">
-                        <div class="step-head">
-                            <h2 class="step-title" id="stepLangTitle"><span class="step-num">02</span>Target languages</h2>
+                    <section class="panel compact-language-selection" aria-labelledby="stepLangTitle">
+                        <div class="panel-head">
+                            <h2 class="panel-title" id="stepLangTitle"><span class="step-num">2</span>Target languages</h2>
                             <span class="badge bg-secondary" id="selectedCount">0 selected</span>
                         </div>
 
@@ -110,25 +115,25 @@
                                 <label for="languageSearch" class="visually-hidden">Search languages</label>
                                 <i class="fas fa-search" aria-hidden="true"></i>
                                 <input type="text" class="form-control" id="languageSearch"
-                                       placeholder="Search languages…"
+                                       placeholder="Search languages"
                                        onkeyup="filterLanguages()"
                                        autocomplete="off">
-                                <button class="btn btn-quiet btn-sm" type="button" id="clearSearch"
+                                <button class="icon-btn icon-btn--sm" type="button" id="clearSearch"
                                         onclick="clearLanguageSearch()" style="display: none;" aria-label="Clear search">
                                     <i class="fas fa-times" aria-hidden="true"></i>
                                 </button>
                             </div>
-                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectCommonLanguages()"
+                            <button type="button" class="chip" onclick="selectCommonLanguages()"
                                     title="Select: Arabic, Chinese, Danish, Dutch, French, Indonesian, Italian, Japanese, Portuguese, Spanish, Turkish">
-                                <i class="fas fa-star me-1" aria-hidden="true"></i>Common
+                                <i class="fas fa-star" aria-hidden="true"></i>Common
                             </button>
-                            <button type="button" class="btn btn-quiet btn-sm" onclick="clearAllLanguages()">
-                                <i class="fas fa-times me-1" aria-hidden="true"></i>Clear
+                            <button type="button" class="chip" onclick="clearAllLanguages()">
+                                <i class="fas fa-times" aria-hidden="true"></i>Clear
                             </button>
                         </div>
 
                         <!-- Select All Control -->
-                        <div class="select-all-row">
+                        <div class="select-all-row form-check">
                             <input class="form-check-input" type="checkbox" id="selectAll">
                             <label class="form-check-label" for="selectAll">Select all languages</label>
                         </div>
@@ -138,8 +143,8 @@
                             <div class="row g-2" id="languageCheckboxes">
                                 {% for language in languages %}
                                     {% if language.key != "" %}
-                                    <div class="col-6 col-md-4 col-lg-3 col-xl-2 mb-1">
-                                        <div class="form-check py-0">
+                                    <div class="col-6 col-md-4 col-lg-3 col-xl-3">
+                                        <div class="lang-check">
                                             <input class="form-check-input language-checkbox" type="checkbox"
                                                    name="target_languages" value="{{ language.key }}"
                                                    id="lang_{{ language.key }}">
@@ -152,16 +157,18 @@
                                 {% endfor %}
                             </div>
                         </div>
-                        <p class="step-note">Common picks Arabic, Chinese, Danish, Dutch, French, Indonesian, Italian, Japanese, Portuguese, Spanish and Turkish.</p>
+                        <p class="panel-note">Common picks Arabic, Chinese, Danish, Dutch, French, Indonesian, Italian, Japanese, Portuguese, Spanish and Turkish.</p>
                     </section>
                 </div>
 
-                <!-- Step 3: tester, start, guide -->
+                <!-- Step 3: tester and start -->
                 <aside class="mass-aside">
                     <div class="aside-sticky">
-                        <section class="sheet aside-card" aria-labelledby="stepTesterTitle">
-                            <h2 class="step-title" id="stepTesterTitle"><span class="step-num">03</span>Run</h2>
-                            <label for="testedBy" class="form-label">Tested by <span class="text-danger">*</span></label>
+                        <section class="panel" aria-labelledby="stepTesterTitle">
+                            <div class="panel-head">
+                                <h2 class="panel-title" id="stepTesterTitle"><span class="step-num">3</span>Run</h2>
+                            </div>
+                            <label for="testedBy" class="form-label">Tested by <span class="req">*</span></label>
                             <input type="text"
                                    class="form-control"
                                    id="testedBy"
@@ -172,23 +179,20 @@
                             <div class="form-text">Saved with every row so results can be traced.</div>
 
                             <!-- Submit Button -->
-                            <button type="submit" class="btn btn-primary btn-lg w-100 mt-4" id="translateBtn">
+                            <button type="submit" class="btn btn-primary btn-pill btn-lg w-100 mt-4" id="translateBtn">
                                 <i class="fas fa-play me-2"></i>Start Mass Translation
                             </button>
                             <p class="aside-note">Keep this tab open while it runs. Large files can take several minutes.</p>
                         </section>
 
                         <!-- Quick guide -->
-                        <section class="sheet aside-card" aria-labelledby="guideTitle">
+                        <section class="panel" aria-labelledby="guideTitle">
                             <h2 class="guide-title" id="guideTitle">Before you start</h2>
                             <ul class="guide-list">
-                                <li><span class="mono">.xlsx</span> or <span class="mono">.xls</span> with a “Phrase Text” column</li>
-                                <li>100+ languages; Common selects a ready-made set</li>
-                                <li>About 2–5 seconds per phrase per language</li>
+                                <li><i class="fas fa-file-excel" aria-hidden="true"></i><span><span class="mono">.xlsx</span> or <span class="mono">.xls</span> with a “Phrase Text” column</span></li>
+                                <li><i class="fas fa-globe" aria-hidden="true"></i><span>100+ languages; Common selects a ready-made set</span></li>
+                                <li><i class="fas fa-stopwatch" aria-hidden="true"></i><span>About 2–5 seconds per phrase per language</span></li>
                             </ul>
-                            <button type="button" class="btn btn-quiet btn-sm" id="downloadTemplateBtn">
-                                <i class="fas fa-download me-2" aria-hidden="true"></i>Download Template
-                            </button>
                         </section>
                     </div>
                 </aside>
@@ -196,9 +200,9 @@
         </form>
 
         <!-- Processing Indicator -->
-        <div class="processing-indicator sheet" role="status">
+        <div class="processing-indicator" role="status">
             <div class="processing-inner">
-                <span class="reg-spin">{% include "partials/reg-mark.html" %}</span>
+                <span class="spinner" aria-hidden="true"></span>
                 <div>
                     <p class="processing-title">Translating your file…</p>
                     <p class="processing-sub">Each language is translated in turn and saved as it finishes. Keep this tab open.</p>
@@ -210,34 +214,31 @@
         <section id="resultsSection" class="d-none results-section" aria-labelledby="resultsTitle">
             <div class="results-head">
                 <h2 id="resultsTitle">Translation complete</h2>
-                <button type="button" class="btn btn-ink" id="downloadBtn">
+                <button type="button" class="btn btn-primary btn-pill" id="downloadBtn">
                     <i class="fas fa-download me-2" aria-hidden="true"></i>Download Excel Results
                 </button>
             </div>
 
             <!-- Statistics -->
-            <div class="sheet summary-sheet">
-                <table class="table summary-table">
-                    <caption class="visually-hidden">Mass translation summary</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Rows</th>
-                            <th scope="col">Successful</th>
-                            <th scope="col">Failed</th>
-                            <th scope="col">Success rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td id="totalRows" class="mono" data-label="Rows">0</td>
-                            <td id="successfulRows" class="mono" data-label="Successful">0</td>
-                            <td id="failedRows" class="mono" data-label="Failed">0</td>
-                            <td id="successRate" class="mono" data-label="Success rate">0%</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p class="summary-note">Successful and Failed count translations: rows × languages.</p>
+            <div class="stat-grid stat-grid--4">
+                <div class="stat-card">
+                    <span class="stat-label">Rows</span>
+                    <span class="stat-value mono" id="totalRows">0</span>
+                </div>
+                <div class="stat-card stat-card--success">
+                    <span class="stat-label">Successful</span>
+                    <span class="stat-value mono" id="successfulRows">0</span>
+                </div>
+                <div class="stat-card stat-card--failed">
+                    <span class="stat-label">Failed</span>
+                    <span class="stat-value mono" id="failedRows">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Success rate</span>
+                    <span class="stat-value mono" id="successRate">0%</span>
+                </div>
             </div>
+            <p class="summary-note">Successful and Failed count translations: rows × languages.</p>
 
             <!-- Saved results message and label types -->
             <div class="results-container">
