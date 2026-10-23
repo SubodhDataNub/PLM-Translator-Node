@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+
+    <!-- Apply the saved theme before first paint (the toggle lives in static/js/site.js) -->
+    <script>
+        (function () {
+            let choice = 'system';
+            try { choice = localStorage.getItem('dn-theme') || 'system'; } catch (e) { /* storage blocked */ }
+            const root = document.documentElement;
+            if (choice === 'light' || choice === 'dark') root.dataset.theme = choice;
+            const dark = choice === 'dark' || (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            root.dataset.bsTheme = dark ? 'dark' : 'light';
+        })();
+    </script>
+
+    <!-- Fonts: DM Sans (UI), DM Mono (numbers), Roboto Slab (product name, matches the logo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400..700&family=Roboto+Slab:wght@700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="/static/css/tokens.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+
+    <title>Mass translation · DN Translator</title>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <!-- The app card: opened here, closed in partials/footer.html -->
+    <div class="app-shell">
+        <header class="topbar">
+            <a class="brand" href="/">
+                <img class="brand-logo" src="/static/images/datanub-logo.png" alt="DataNub" width="134" height="42">
+                <span class="brand-name">Translator</span>
+            </a>
+
+            <nav class="topnav" aria-label="Main">
+                <a class="topnav-link" href="/">
+                    <i class="fas fa-language" aria-hidden="true"></i><span class="topnav-long">Single translation</span><span class="topnav-short">Single</span>
+                </a>
+                <a class="topnav-link is-active" href="/mass-translation.html" aria-current="page">
+                    <i class="fas fa-file-excel" aria-hidden="true"></i><span class="topnav-long">Mass translation</span><span class="topnav-short">Mass</span>
+                </a>
+                <a class="topnav-link" href="/test-results.html">
+                    <i class="fas fa-list-check" aria-hidden="true"></i><span class="topnav-long">Test results</span><span class="topnav-short">Results</span>
+                </a>
+            </nav>
+
+            <div class="theme-switch" role="group" aria-label="Color theme">
+                <button type="button" class="theme-option" data-theme-choice="system" aria-pressed="true" title="Match system">
+                    <i class="fas fa-circle-half-stroke" aria-hidden="true"></i><span class="visually-hidden">System theme</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-choice="light" aria-pressed="false" title="Light">
+                    <i class="fas fa-sun" aria-hidden="true"></i><span class="visually-hidden">Light theme</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-choice="dark" aria-pressed="false" title="Dark">
+                    <i class="fas fa-moon" aria-hidden="true"></i><span class="visually-hidden">Dark theme</span>
+                </button>
+            </div>
+        </header>
+
+
+    <main id="main" class="page">
+        <header class="page-intro">
+            <div>
+                <h1>Mass translation</h1>
+                <p class="lede">Translate a spreadsheet of label texts into several languages at once. Every row is saved to Test results.</p>
+            </div>
+            <button type="button" class="btn btn-tonal btn-pill" id="downloadTemplateBtn">
+                <i class="fas fa-download me-2" aria-hidden="true"></i>Download Template
+            </button>
+        </header>
+
+        <!-- Upload Form -->
+        <form id="massTranslationForm" enctype="multipart/form-data">
+            <div class="mass-layout">
+                <div class="mass-main">
+                    <!-- Step 1: spreadsheet -->
+                    <section class="panel" aria-labelledby="stepFileTitle">
+                        <div class="panel-head">
+                            <h2 class="panel-title" id="stepFileTitle"><span class="step-num">1</span>Spreadsheet</h2>
+                        </div>
+
+                        <!-- File Upload Area -->
+                        <div class="upload-area" id="uploadArea" role="button" tabindex="0">
+                            <input type="file" class="d-none" id="fileInput" name="file" accept=".xlsx,.xls">
+                            <div id="uploadContent">
+                                <span class="upload-icon" aria-hidden="true"><i class="fas fa-cloud-arrow-up"></i></span>
+                                <p class="upload-title">Drop your Excel file here</p>
+                                <p class="upload-sub">or <span class="upload-link">browse your files</span></p>
+                                <p class="upload-hint">.xlsx or .xls · text in a “Phrase Text” column</p>
+                            </div>
+                            <div id="fileInfo" class="d-none">
+                                <span class="upload-icon upload-icon--ready" aria-hidden="true"><i class="fas fa-file-excel"></i></span>
+                                <p id="fileName" class="upload-title"></p>
+                                <p class="upload-hint mono" id="fileSize"></p>
+                                <p class="upload-sub">Click or drop another file to replace it</p>
+                            </div>
+                        </div>
+
+                        <!-- File Validation Section -->
+                        <div id="fileValidationSection" class="validation" style="display: none;">
+                            <!-- Large File Warning -->
+                            <div class="alert alert-warning" id="largeFileWarning" style="display: none;">
+                                <div class="d-flex align-items-start">
+                                    <i class="fas fa-triangle-exclamation me-2 mt-1" aria-hidden="true"></i>
+                                    <div>
+                                        <strong>Large dataset detected</strong>
+                                        <div id="largeFileMessage"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Validation Results -->
+                            <div class="validation-grid" id="validationResults">
+                                <div class="validation-block">
+                                    <h3 class="validation-title">File</h3>
+                                    <div id="fileDetails" class="validation-body">
+                                        <p class="validation-empty">Validate the file to see its rows and columns.</p>
+                                    </div>
+                                </div>
+                                <div class="validation-block">
+                                    <h3 class="validation-title">Estimate</h3>
+                                    <div id="timeEstimates" class="validation-body">
+                                        <p class="validation-empty">Validate the file, then pick languages to estimate the time.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Processing Options -->
+                            <div class="processing-options" id="processingOptions" style="display: none;">
+                                <h3 class="validation-title">Processing options</h3>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="useChunkedProcessing">
+                                    <label class="form-check-label" for="useChunkedProcessing">
+                                        Use chunked processing <span class="text-muted">(recommended for 10,000+ records)</span>
+                                        <span class="d-block form-text">Processes data in smaller chunks to prevent timeouts</span>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enableProgressTracking" checked>
+                                    <label class="form-check-label" for="enableProgressTracking">
+                                        Enable detailed progress tracking
+                                        <span class="d-block form-text">Shows real-time progress for large datasets</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Validation Action Button -->
+                            <div class="validation-actions">
+                                <button type="button" class="btn btn-tonal btn-pill btn-sm" id="validateFileBtn">
+                                    <i class="fas fa-search me-1"></i>Validate File Structure
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Step 2: target languages -->
+                    <section class="panel compact-language-selection" aria-labelledby="stepLangTitle">
+                        <div class="panel-head">
+                            <h2 class="panel-title" id="stepLangTitle"><span class="step-num">2</span>Target languages</h2>
+                            <span class="badge bg-secondary" id="selectedCount">0 selected</span>
+                        </div>
+
+                        <!-- Language Search and Controls -->
+                        <div class="lang-toolbar">
+                            <div class="lang-search">
+                                <label for="languageSearch" class="visually-hidden">Search languages</label>
+                                <i class="fas fa-search" aria-hidden="true"></i>
+                                <input type="text" class="form-control" id="languageSearch"
+                                       placeholder="Search languages"
+                                       onkeyup="filterLanguages()"
+                                       autocomplete="off">
+                                <button class="icon-btn icon-btn--sm" type="button" id="clearSearch"
+                                        onclick="clearLanguageSearch()" style="display: none;" aria-label="Clear search">
+                                    <i class="fas fa-times" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <button type="button" class="chip" onclick="selectCommonLanguages()"
+                                    title="Select: Arabic, Chinese, Danish, Dutch, French, Indonesian, Italian, Japanese, Portuguese, Spanish, Turkish">
+                                <i class="fas fa-star" aria-hidden="true"></i>Common
+                            </button>
+                            <button type="button" class="chip" onclick="clearAllLanguages()">
+                                <i class="fas fa-times" aria-hidden="true"></i>Clear
+                            </button>
+                        </div>
+
+                        <!-- Select All Control -->
+                        <div class="select-all-row form-check">
+                            <input class="form-check-input" type="checkbox" id="selectAll">
+                            <label class="form-check-label" for="selectAll">Select all languages</label>
+                        </div>
+
+                        <!-- Languages Container -->
+                        <div class="languages-box" id="languagesContainer">
+                            <div class="row g-2" id="languageCheckboxes">
+                                
+                            </div>
+                        </div>
+                        <p class="panel-note">Common picks Arabic, Chinese, Danish, Dutch, French, Indonesian, Italian, Japanese, Portuguese, Spanish and Turkish.</p>
+                    </section>
+                </div>
+
+                <!-- Step 3: tester and start -->
+                <aside class="mass-aside">
+                    <div class="aside-sticky">
+                        <section class="panel" aria-labelledby="stepTesterTitle">
+                            <div class="panel-head">
+                                <h2 class="panel-title" id="stepTesterTitle"><span class="step-num">3</span>Run</h2>
+                            </div>
+                            <label for="testedBy" class="form-label">Tested by <span class="req">*</span></label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="testedBy"
+                                   name="tested_by"
+                                   placeholder="Your name or identifier"
+                                   required
+                                   maxlength="100">
+                            <div class="form-text">Saved with every row so results can be traced.</div>
+
+                            <!-- Submit Button -->
+                            <button type="submit" class="btn btn-primary btn-pill btn-lg w-100 mt-4" id="translateBtn">
+                                <i class="fas fa-play me-2"></i>Start Mass Translation
+                            </button>
+                            <p class="aside-note">Keep this tab open while it runs. Large files can take several minutes.</p>
+                        </section>
+
+                        <!-- Quick guide -->
+                        <section class="panel" aria-labelledby="guideTitle">
+                            <h2 class="guide-title" id="guideTitle">Before you start</h2>
+                            <ul class="guide-list">
+                                <li><i class="fas fa-file-excel" aria-hidden="true"></i><span><span class="mono">.xlsx</span> or <span class="mono">.xls</span> with a “Phrase Text” column</span></li>
+                                <li><i class="fas fa-globe" aria-hidden="true"></i><span>100+ languages; Common selects a ready-made set</span></li>
+                                <li><i class="fas fa-stopwatch" aria-hidden="true"></i><span>About 2–5 seconds per phrase per language</span></li>
+                            </ul>
+                        </section>
+                    </div>
+                </aside>
+            </div>
+        </form>
+
+        <!-- Processing Indicator -->
+        <div class="processing-indicator" role="status">
+            <div class="processing-inner">
+                <span class="spinner" aria-hidden="true"></span>
+                <div>
+                    <p class="processing-title">Translating your file…</p>
+                    <p class="processing-sub">Each language is translated in turn and saved as it finishes. Keep this tab open.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="d-none results-section" aria-labelledby="resultsTitle">
+            <div class="results-head">
+                <h2 id="resultsTitle">Translation complete</h2>
+                <button type="button" class="btn btn-primary btn-pill" id="downloadBtn">
+                    <i class="fas fa-download me-2" aria-hidden="true"></i>Download Excel Results
+                </button>
+            </div>
+
+            <!-- Statistics -->
+            <div class="stat-grid stat-grid--4">
+                <div class="stat-card">
+                    <span class="stat-label">Rows</span>
+                    <span class="stat-value mono" id="totalRows">0</span>
+                </div>
+                <div class="stat-card stat-card--success">
+                    <span class="stat-label">Successful</span>
+                    <span class="stat-value mono" id="successfulRows">0</span>
+                </div>
+                <div class="stat-card stat-card--failed">
+                    <span class="stat-label">Failed</span>
+                    <span class="stat-value mono" id="failedRows">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Success rate</span>
+                    <span class="stat-value mono" id="successRate">0%</span>
+                </div>
+            </div>
+            <p class="summary-note">Successful and Failed count translations: rows × languages.</p>
+
+            <!-- Saved results message and label types -->
+            <div class="results-container">
+                <div id="resultsContent"></div>
+            </div>
+        </section>
+    </main>
+
+        <footer class="app-foot">
+            <span>DN Translator · DataNub</span>
+            <time id="slugDate"></time>
+        </footer>
+    </div>
+
+    <script src="/static/js/site.js"></script>
+
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Font Awesome -->
+    <!-- Font Awesome JS is not needed since CDN CSS is already included in the head -->
+
+    <script src="/static/js/api.js"></script>
+    <script>
+        // Configuration object for client-side settings
+        const CONFIG = {
+            MAX_FILE_SIZE: 10 * 1024 * 1024 // 10MB, should match server-side
+        };
+
+        let currentSessionId = null;
+
+        // Language checkbox functions (moved to enhanced versions below)
+        // Functions moved to work with filtering and search functionality
+
+        function getSelectedLanguages() {
+            const checkedBoxes = document.querySelectorAll('.language-checkbox:checked');
+            return Array.from(checkedBoxes).map(checkbox => ({
+                code: checkbox.value,
+                name: checkbox.nextElementSibling.textContent.trim()
+            }));
+        }
+
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadContent = document.getElementById('uploadContent');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Keyboard: Enter or Space on the upload area opens the file picker too
+        uploadArea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });
+
+        // Drag and drop handling
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            // Validate file type
+            if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+                alert('Please select an Excel file (.xlsx or .xls)');
+                return;
+            }
+
+            // Validate file size (10MB limit)
+            if (file.size > CONFIG.MAX_FILE_SIZE) {
+                alert('File size must be less than ' + formatFileSize(CONFIG.MAX_FILE_SIZE));
+                return;
+            }
+
+            // Update UI
+            uploadContent.classList.add('d-none');
+            fileInfo.classList.remove('d-none');
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+
+            // Set file input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Form submission
+        document.getElementById('massTranslationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('fileInput');
+            const selectedLanguages = getSelectedLanguages();
+            const testedByInput = document.getElementById('testedBy');
+
+            if (!fileInput.files[0]) {
+                alert('Please select an Excel file');
+                return;
+            }
+
+            if (selectedLanguages.length === 0) {
+                alert('Please select at least one target language');
+                return;
+            }
+
+            if (!testedByInput.value.trim()) {
+                // Visual feedback for empty tested_by field
+                testedByInput.classList.add('is-invalid');
+                alert('Please enter who is testing this translation');
+                testedByInput.focus();
+                
+                // Remove error styling when user starts typing
+                testedByInput.addEventListener('input', function() {
+                    this.classList.remove('is-invalid');
+                }, { once: true });
+                
+                return;
+            }
+
+            // Show processing indicator
+            document.querySelector('.processing-indicator').style.display = 'block';
+            document.getElementById('translateBtn').disabled = true;
+            document.getElementById('resultsSection').classList.add('d-none');
+            
+            // Enable navigation warning during translation
+            enableNavigationWarning();
+
+            try {
+                // Submit the translation request - this waits for completion
+                const data = await DNApi.massTranslate(
+                    fileInput.files[0],
+                    selectedLanguages.map(lang => lang.code),
+                    testedByInput.value.trim()
+                );
+
+                // Hide processing indicator
+                document.querySelector('.processing-indicator').style.display = 'none';
+                document.getElementById('translateBtn').disabled = false;
+
+                // Disable navigation warning on success
+                disableNavigationWarning();
+
+                // Display results immediately
+                currentSessionId = data.sessionId || null;
+                displayResults({
+                    success: true,
+                    session_id: data.sessionId,
+                    statistics: {
+                        total_rows: data.totalRows,
+                        successful: data.successful,
+                        failed: data.failed,
+                        success_rate: data.successRate,
+                        label_types: data.labelTypes || {}
+                    }
+                });
+
+            } catch (error) {
+                // Disable navigation warning on error
+                disableNavigationWarning();
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+                document.getElementById('translateBtn').disabled = false;
+                document.querySelector('.processing-indicator').style.display = 'none';
+            }
+        });
+
+        function displayResults(data) {
+            // Update statistics
+            document.getElementById('totalRows').textContent = data.statistics.total_rows;
+            document.getElementById('successfulRows').textContent = data.statistics.successful;
+            document.getElementById('failedRows').textContent = data.statistics.failed;
+            document.getElementById('successRate').textContent = data.statistics.success_rate + '%';
+
+            // Clear any previous results display
+            const resultsContent = document.getElementById('resultsContent');
+            resultsContent.innerHTML = '';
+            
+            // Add message about saved results
+            const infoMsg = document.createElement('div');
+            infoMsg.className = 'alert alert-success mb-3';
+            infoMsg.innerHTML = `
+                <i class="fas fa-check-circle me-2"></i>
+                <strong>Translation Complete!</strong> All ${data.statistics.total_rows} records have been processed and saved successfully.
+                Click the download button above to get your Excel file, or <a href="/test-results" class="alert-link">view all results in Test Results page</a>.
+            `;
+            resultsContent.appendChild(infoMsg);
+
+            // Label type detected for the rows (label terminology)
+            const labelTypes = data.statistics.label_types || {};
+            const labelTypeNames = { food: 'food', cosmetic: 'cosmetic or detergent', general: 'general' };
+            const labelTypeParts = Object.entries(labelTypes)
+                .filter(([, count]) => count > 0)
+                .map(([type, count]) => `${count} ${labelTypeNames[type] || type}`);
+            if (labelTypeParts.length) {
+                const typeMsg = document.createElement('div');
+                typeMsg.className = 'small text-muted mb-3';
+                typeMsg.textContent = `Label type detected per row: ${labelTypeParts.join(', ')}`;
+                resultsContent.appendChild(typeMsg);
+            }
+
+            // Show results section with download button
+            document.getElementById('resultsSection').classList.remove('d-none');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Download results
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            if (!currentSessionId) {
+                alert('No translation session found. Please translate a file first.');
+                return;
+            }
+
+            try {
+                await DNApi.downloadSessionResults(currentSessionId);
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('Error downloading file: ' + error.message);
+            }
+        });
+
+        // Download template
+        document.getElementById('downloadTemplateBtn').addEventListener('click', async () => {
+            try {
+                await DNApi.downloadTemplate();
+            } catch (error) {
+                console.error('Template download error:', error);
+                alert('Error downloading template: ' + error.message);
+            }
+        });
+
+        // Large file validation functionality
+        document.getElementById('validateFileBtn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('fileInput');
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a file first');
+                return;
+            }
+
+            const validateBtn = document.getElementById('validateFileBtn');
+            validateBtn.disabled = true;
+            validateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Validating...';
+
+            try {
+                const result = await DNApi.validateFile(fileInput.files[0]);
+                displayValidationResults({
+                    success: true,
+                    file_size_mb: result.fileSizeMb,
+                    total_rows: result.totalRows,
+                    columns: result.columns || [],
+                    text_column: result.textColumn,
+                    recommendations: result.recommendations || [],
+                    time_estimates: toTimeEstimates(result.timeEstimates)
+                });
+            } catch (error) {
+                console.error('Validation error:', error);
+                alert('Validation failed: ' + error.message);
+            } finally {
+                validateBtn.disabled = false;
+                validateBtn.innerHTML = '<i class="fas fa-search me-1"></i>Validate File Structure';
+            }
+        });
+
+        // Auto-validate large files when selected
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Show validation section for all files
+                document.getElementById('fileValidationSection').style.display = 'block';
+                
+                // Auto-validate if file is larger than 5MB
+                if (file.size > 5 * 1024 * 1024) {
+                    setTimeout(() => {
+                        document.getElementById('validateFileBtn').click();
+                    }, 500);
+                }
+            } else {
+                document.getElementById('fileValidationSection').style.display = 'none';
+            }
+        });
+
+        // Enhanced form submission with large file support
+        // (Removed duplicate submit event listener and unused variable assignment)
+
+        // Language selection functions
+        function toggleAllLanguages() {
+            const selectAll = document.getElementById('selectAll');
+            const languageCheckboxes = document.querySelectorAll('.language-checkbox');
+            
+            languageCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+            
+            updateProcessingEstimates();
+        }
+
+        function updateSelectAll() {
+            const languageCheckboxes = document.querySelectorAll('.language-checkbox');
+            const selectAll = document.getElementById('selectAll');
+            
+            const checkedCount = Array.from(languageCheckboxes).filter(cb => cb.checked).length;
+            const totalCount = languageCheckboxes.length;
+            
+            selectAll.checked = checkedCount === totalCount;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < totalCount;
+            
+            updateProcessingEstimates();
+        }
+
+        // Language search and filtering functions
+        let allLanguages = [];
+
+        // Initialize language search functionality
+        function initializeLanguageSearch() {
+            // Store all languages for filtering
+            const languageElements = document.querySelectorAll('.language-checkbox');
+            allLanguages = Array.from(languageElements).map(checkbox => ({
+                element: checkbox.closest('.col-6, .col-md-4, .col-lg-3, .col-xl-2'),
+                checkbox: checkbox,
+                text: checkbox.nextElementSibling.textContent.toLowerCase(),
+                value: checkbox.value
+            }));
+
+            // Add event listeners to all language checkboxes
+            languageElements.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    updateSelectAll();
+                });
+            });
+
+            // Add event listener to select all checkbox
+            const selectAllCheckbox = document.getElementById('selectAll');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function() {
+                    toggleAllLanguages();
+                });
+            }
+
+            // Initialize the selected count
+            updateSelectedCount();
+        }
+
+        function filterLanguages() {
+            const searchTerm = document.getElementById('languageSearch').value.toLowerCase();
+            const clearButton = document.getElementById('clearSearch');
+            const languagesContainer = document.getElementById('languagesContainer');
+            
+            // Show/hide clear button
+            clearButton.style.display = searchTerm ? 'block' : 'none';
+            
+            let visibleCount = 0;
+            allLanguages.forEach(lang => {
+                const isVisible = lang.text.includes(searchTerm);
+                lang.element.style.display = isVisible ? 'block' : 'none';
+                if (isVisible) visibleCount++;
+            });
+            
+            // Show "no results" message if needed
+            let noResultsMsg = document.getElementById('noResultsMessage');
+            if (visibleCount === 0 && searchTerm) {
+                if (!noResultsMsg) {
+                    noResultsMsg = document.createElement('div');
+                    noResultsMsg.id = 'noResultsMessage';
+                    noResultsMsg.className = 'text-center text-muted py-3';
+                    noResultsMsg.innerHTML = '<i class="fas fa-search me-2"></i>No languages found matching your search';
+                    languagesContainer.appendChild(noResultsMsg);
+                }
+                noResultsMsg.style.display = 'block';
+            } else if (noResultsMsg) {
+                noResultsMsg.style.display = 'none';
+            }
+            
+            // Update select all state after filtering
+            updateSelectAllAfterFilter();
+        }
+
+        function clearLanguageSearch() {
+            document.getElementById('languageSearch').value = '';
+            filterLanguages();
+            document.getElementById('languageSearch').focus();
+        }
+
+        function updateSelectAllAfterFilter() {
+            const visibleCheckboxes = allLanguages
+                .filter(lang => lang.element.style.display !== 'none')
+                .map(lang => lang.checkbox);
+            
+            const selectAll = document.getElementById('selectAll');
+            const checkedCount = visibleCheckboxes.filter(cb => cb.checked).length;
+            const totalVisible = visibleCheckboxes.length;
+            
+            if (totalVisible === 0) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            } else {
+                selectAll.checked = checkedCount === totalVisible;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < totalVisible;
+            }
+        }
+
+        function selectCommonLanguages() {
+            // Google lists Chinese (Simplified) as 'zh-CN' (or 'zh')
+            const chineseCode = allLanguages.some(lang => lang.value === 'zh-CN') ? 'zh-CN' : 'zh';
+
+            // Updated common languages list based on user requirements
+            const commonLanguages = [
+                'ar',    // Arabic
+                chineseCode,    // Chinese
+                'da',    // Danish
+                'nl',    // Dutch
+                'fr',    // French
+                'id',    // Indonesian
+                'it',    // Italian
+                'ja',    // Japanese
+                'pt',    // Portuguese
+                'es',    // Spanish
+                'tr'     // Turkish
+            ];
+            
+            // Clear all first
+            clearAllLanguages();
+
+            // Select common languages
+            allLanguages.forEach(lang => {
+                if (commonLanguages.includes(lang.value)) {
+                    lang.checkbox.checked = true;
+                }
+            });
+            
+            updateSelectAll();
+        }
+
+        function clearAllLanguages() {
+            allLanguages.forEach(lang => {
+                lang.checkbox.checked = false;
+            });
+            updateSelectAll();
+        }
+
+        // Enhanced toggleAllLanguages to work with filtered results
+        function toggleAllLanguages() {
+            const selectAll = document.getElementById('selectAll');
+            const visibleCheckboxes = allLanguages
+                .filter(lang => lang.element.style.display !== 'none')
+                .map(lang => lang.checkbox);
+            
+            visibleCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+            
+            updateSelectedCount();
+            updateProcessingEstimates();
+        }
+
+        // Enhanced updateSelectAll to work with search
+        function updateSelectAll() {
+            updateSelectAllAfterFilter();
+            updateSelectedCount();
+            updateProcessingEstimates();
+        }
+
+        // Update selected languages counter
+        function updateSelectedCount() {
+            const selectedCheckboxes = allLanguages.filter(lang => lang.checkbox.checked);
+            const count = selectedCheckboxes.length;
+            const countElement = document.getElementById('selectedCount');
+            
+            if (countElement) {
+                countElement.textContent = count === 0 ? '0 selected' : 
+                                         count === 1 ? '1 selected' : 
+                                         `${count} selected`;
+                
+                // Update badge color based on count
+                countElement.className = count === 0 ? 'badge bg-secondary' : 
+                                       count <= 5 ? 'badge bg-success' : 
+                                       count <= 15 ? 'badge bg-primary' : 
+                                       'badge bg-warning';
+            }
+        }
+
+        // Dynamic processing estimates based on selected languages
+        let lastValidationResult = null;
+
+        function updateProcessingEstimates() {
+            if (!lastValidationResult || !lastValidationResult.total_rows) {
+                return;
+            }
+
+            const selectedLanguages = Array.from(document.querySelectorAll('.language-checkbox:checked'))
+                .map(cb => cb.value);
+
+            if (selectedLanguages.length === 0) {
+                // No languages selected, show default estimate
+                displayTimeEstimates(lastValidationResult.time_estimates, 0);
+                return;
+            }
+
+            DNApi.estimateProcessingTime(lastValidationResult.total_rows, selectedLanguages)
+                .then(estimates => {
+                    displayTimeEstimates(toTimeEstimates(estimates), lastValidationResult.total_rows * selectedLanguages.length);
+                })
+                .catch(error => {
+                    console.error('Error updating estimates:', error);
+                });
+        }
+
+        /** Service estimate (camelCase) in the shape the display functions use */
+        function toTimeEstimates(estimates) {
+            if (!estimates) return null;
+            return {
+                estimated_minutes: estimates.estimatedMinutes,
+                estimated_hours: estimates.estimatedHours,
+                record_count: estimates.recordCount,
+                language_count: estimates.languageCount,
+                recommendation: estimates.recommendation
+            };
+        }
+
+        /** Build the language checkboxes from the service's language list */
+        async function loadLanguages() {
+            const container = document.getElementById('languageCheckboxes');
+            try {
+                const languages = (await DNApi.languages()).filter(lang => lang.key);
+                container.innerHTML = '';
+                languages.forEach(lang => {
+                    const col = document.createElement('div');
+                    col.className = 'col-6 col-md-4 col-lg-3 col-xl-3';
+                    const id = `lang_${lang.key}`;
+                    col.innerHTML = `
+                        <div class="lang-check">
+                            <input class="form-check-input language-checkbox" type="checkbox" name="target_languages">
+                            <label class="form-check-label"></label>
+                        </div>`;
+                    const input = col.querySelector('input');
+                    input.value = lang.key;
+                    input.id = id;
+                    const label = col.querySelector('label');
+                    label.htmlFor = id;
+                    label.title = lang.text;
+                    label.textContent = lang.text;
+                    container.appendChild(col);
+                });
+            } catch (error) {
+                console.error('Could not load languages:', error);
+                container.innerHTML = `<div class="text-danger small">Could not load languages: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        function displayTimeEstimates(estimates, totalTranslations) {
+            const timeEstimatesDiv = document.getElementById('timeEstimates');
+            
+            if (!estimates) {
+                timeEstimatesDiv.innerHTML = '<div class="small text-muted">Select languages to see estimates</div>';
+                return;
+            }
+
+            const minutes = estimates.estimated_minutes;
+            const hours = estimates.estimated_hours;
+            const languageCount = estimates.language_count;
+            
+            let timeDisplay;
+            if (hours >= 1) {
+                timeDisplay = `${hours.toFixed(1)} hours`;
+            } else if (minutes >= 1) {
+                timeDisplay = `${Math.round(minutes)} minutes`;
+            } else {
+                timeDisplay = `${Math.round(minutes * 60)} seconds`;
+            }
+
+            let estimatesHtml = `
+                <div class="small">
+                    <div><strong>Estimated Time:</strong> ${timeDisplay}</div>
+                    <div><strong>Languages Selected:</strong> ${languageCount}</div>
+                    ${totalTranslations ? `<div><strong>Total Translations:</strong> ${totalTranslations.toLocaleString()}</div>` : ''}
+                    <div class="text-info mt-1">${estimates.recommendation}</div>
+                </div>
+            `;
+            
+            timeEstimatesDiv.innerHTML = estimatesHtml;
+        }
+
+        // Enhanced displayValidationResults to store result and add language change listeners
+        function displayValidationResults(result) {
+            lastValidationResult = result;
+            
+            const fileDetails = document.getElementById('fileDetails');
+            const timeEstimates = document.getElementById('timeEstimates');
+            const largeFileWarning = document.getElementById('largeFileWarning');
+            const largeFileMessage = document.getElementById('largeFileMessage');
+            const processingOptions = document.getElementById('processingOptions');
+
+            // Display file information
+            let fileDetailsHtml = `
+                <div class="small">
+                    <div><strong>File Size:</strong> ${result.file_size_mb} MB</div>
+                    <div><strong>Total Rows:</strong> ${result.total_rows.toLocaleString()}</div>
+                    <div><strong>Text Column:</strong> ${result.text_column}</div>
+                    <div><strong>Columns:</strong> ${result.columns.join(', ')}</div>
+                </div>
+            `;
+            fileDetails.innerHTML = fileDetailsHtml;
+
+            // Display time estimates if available
+            if (result.time_estimates) {
+                const estimates = result.time_estimates;
+                let estimatesHtml = `
+                    <div class="small">
+                        <div><strong>Base Estimate (1 language):</strong> ${Math.round(estimates.estimated_minutes)} minutes</div>
+                        <div><strong>Record Count:</strong> ${estimates.record_count.toLocaleString()}</div>
+                        <div class="text-warning mt-1">
+                            <i class="fas fa-info-circle me-1"></i>Select target languages below to see updated estimates
+                        </div>
+                    </div>
+                `;
+                timeEstimates.innerHTML = estimatesHtml;
+            }
+
+            // Show warnings for large files
+            if (result.total_rows > 10000) {
+                largeFileMessage.innerHTML = `
+                    <div>File contains ${result.total_rows.toLocaleString()} rows.</div>
+                    <div class="small mt-1">
+                        • Processing may take ${Math.round(result.time_estimates?.estimated_minutes || 10)} minutes or more<br>
+                        • Chunked processing is recommended<br>
+                        • Progress tracking will be enabled automatically
+                    </div>
+                `;
+                largeFileWarning.style.display = 'block';
+                processingOptions.style.display = 'block';
+                
+                // Auto-enable chunked processing for very large files
+                if (result.total_rows > 50000) {
+                    document.getElementById('useChunkedProcessing').checked = true;
+                }
+            } else {
+                largeFileWarning.style.display = 'none';
+                processingOptions.style.display = 'none';
+            }
+
+            // Show recommendations
+            if (result.recommendations && result.recommendations.length > 0) {
+                const recommendationsHtml = result.recommendations.map(rec => 
+                    `<div class="small text-muted">• ${rec}</div>`
+                ).join('');
+                
+                timeEstimates.innerHTML += `
+                    <div class="mt-2">
+                        <strong class="small">Recommendations:</strong>
+                        ${recommendationsHtml}
+                    </div>
+                `;
+            }
+            
+            // Add event listeners to language checkboxes for dynamic updates
+            document.querySelectorAll('.language-checkbox').forEach(checkbox => {
+                checkbox.removeEventListener('change', updateSelectAll); // Remove existing listeners
+                checkbox.addEventListener('change', updateSelectAll);
+            });
+            
+            // Update estimates immediately if languages are already selected
+            updateProcessingEstimates();
+            
+            // Initialize language search functionality
+            initializeLanguageSearch();
+        }
+
+        // Navigation warning system for mass translation
+        let translationInProgress = false;
+        
+        function enableNavigationWarning() {
+            translationInProgress = true;
+            window.addEventListener('beforeunload', handleBeforeUnload);
+        }
+        
+        function disableNavigationWarning() {
+            translationInProgress = false;
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        }
+        
+        function handleBeforeUnload(event) {
+            if (translationInProgress) {
+                const message = 'Mass translation is in progress. Leaving this page will stop the translation process. Are you sure you want to leave?';
+                event.preventDefault();
+                event.returnValue = message; // For Chrome
+                return message; // For other browsers
+            }
+        }
+
+        // Initialize page functionality when DOM is loaded
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Load the languages, then initialize language search
+            await loadLanguages();
+            initializeLanguageSearch();
+        });
+    </script>
+</body>
+</html>

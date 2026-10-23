@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+
+    <!-- Apply the saved theme before first paint (the toggle lives in static/js/site.js) -->
+    <script>
+        (function () {
+            let choice = 'system';
+            try { choice = localStorage.getItem('dn-theme') || 'system'; } catch (e) { /* storage blocked */ }
+            const root = document.documentElement;
+            if (choice === 'light' || choice === 'dark') root.dataset.theme = choice;
+            const dark = choice === 'dark' || (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            root.dataset.bsTheme = dark ? 'dark' : 'light';
+        })();
+    </script>
+
+    <!-- Fonts: DM Sans (UI), DM Mono (numbers), Roboto Slab (product name, matches the logo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400..700&family=Roboto+Slab:wght@700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="/static/css/tokens.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+
+    <title>DN Translator</title>
+</head>
+
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <!-- The app card: opened here, closed in partials/footer.html -->
+    <div class="app-shell">
+        <header class="topbar">
+            <a class="brand" href="/">
+                <img class="brand-logo" src="/static/images/datanub-logo.png" alt="DataNub" width="134" height="42">
+                <span class="brand-name">Translator</span>
+            </a>
+
+            <nav class="topnav" aria-label="Main">
+                <a class="topnav-link is-active" href="/" aria-current="page">
+                    <i class="fas fa-language" aria-hidden="true"></i><span class="topnav-long">Single translation</span><span class="topnav-short">Single</span>
+                </a>
+                <a class="topnav-link" href="/mass-translation.html">
+                    <i class="fas fa-file-excel" aria-hidden="true"></i><span class="topnav-long">Mass translation</span><span class="topnav-short">Mass</span>
+                </a>
+                <a class="topnav-link" href="/test-results.html">
+                    <i class="fas fa-list-check" aria-hidden="true"></i><span class="topnav-long">Test results</span><span class="topnav-short">Results</span>
+                </a>
+            </nav>
+
+            <div class="theme-switch" role="group" aria-label="Color theme">
+                <button type="button" class="theme-option" data-theme-choice="system" aria-pressed="true" title="Match system">
+                    <i class="fas fa-circle-half-stroke" aria-hidden="true"></i><span class="visually-hidden">System theme</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-choice="light" aria-pressed="false" title="Light">
+                    <i class="fas fa-sun" aria-hidden="true"></i><span class="visually-hidden">Light theme</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-choice="dark" aria-pressed="false" title="Dark">
+                    <i class="fas fa-moon" aria-hidden="true"></i><span class="visually-hidden">Dark theme</span>
+                </button>
+            </div>
+        </header>
+
+
+    <main id="main" class="page">
+        <h1 class="visually-hidden">Single translation</h1>
+
+        <!-- Translator: source and translation side by side -->
+        <section class="translate-card" aria-label="Translator">
+            <!-- Source -->
+            <div class="pane pane--source">
+                <div class="pane-bar">
+                    <div class="chips">
+                        <span class="chip is-active" id="detectedLanguage">Detect language</span>
+                    </div>
+                </div>
+
+                <form id="translatorForm" class="pane-body">
+                    <label for="sourceText" class="visually-hidden">Text to translate</label>
+                    <textarea class="pane-text" id="sourceText" name="sourceText" rows="5" maxlength="5000" dir="auto"
+                        placeholder="Enter label text" required></textarea>
+                    <button type="button" id="clearBtn" class="icon-btn pane-clear" title="Clear all" aria-label="Clear all">
+                        <i class="fas fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </form>
+
+                <div class="pane-foot">
+                    <span class="pane-count mono"><span id="charCount">0</span> / 5000</span>
+                    <div class="pane-actions">
+                        <kbd class="shortcut-hint" title="Translate with Cmd or Ctrl + Enter">Ctrl ↵</kbd>
+                        <button type="button" id="translateBtn" class="btn btn-primary btn-pill" aria-keyshortcuts="Control+Enter Meta+Enter">
+                            <i class="fas fa-language me-2"></i>Translate
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <span class="pane-direction" aria-hidden="true"><i class="fas fa-arrow-right"></i></span>
+
+            <!-- Translation -->
+            <div class="pane pane--target">
+                <div class="pane-bar">
+                    <div class="chips" role="group" aria-label="Target language">
+                        <span class="chip is-active" id="selectedLanguage" hidden></span>
+                        <button type="button" class="chip quick-lang-btn" data-lang="es" aria-pressed="false">Spanish</button>
+                        <button type="button" class="chip quick-lang-btn" data-lang="fr" aria-pressed="false">French</button>
+                        <button type="button" class="chip quick-lang-btn" data-lang="de" aria-pressed="false">German</button>
+                        <button type="button" class="chip quick-lang-btn" data-lang="it" aria-pressed="false">Italian</button>
+                        <button type="button" class="chip quick-lang-btn" data-lang="zh-CN" aria-pressed="false">Chinese</button>
+                    </div>
+
+                    <!-- All languages: searchable list -->
+                    <div class="language-selector">
+                        <button type="button" class="icon-btn lang-toggle" aria-expanded="false" aria-controls="languagePanel"
+                                title="All languages" aria-label="All languages">
+                            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                        </button>
+
+                        <div class="language-dropdown d-none" id="languagePanel">
+                            <div class="language-search">
+                                <i class="fas fa-search" aria-hidden="true"></i>
+                                <input type="text" class="form-control" id="languageSearchInput"
+                                       placeholder="Search languages" autocomplete="off" aria-label="Search languages">
+                            </div>
+
+                            <!-- Hidden select: the source of truth for the target language -->
+                            <select class="d-none" id="targetLanguage" name="targetLanguage" required>
+                                <option value="">Select target language...</option>
+                                
+                            </select>
+
+                            <div id="languageOptions" class="language-options">
+                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pane-body">
+                    <label for="translatedText" class="visually-hidden">Translation</label>
+                    <textarea class="pane-text" id="translatedText" name="translatedText" rows="5" readonly dir="auto"
+                        placeholder="Translation"></textarea>
+                    <div id="loadingOverlay" class="pane-loading d-none" role="status">
+                        <span class="spinner" aria-hidden="true"></span>
+                        <span>Translating…</span>
+                    </div>
+                </div>
+
+                <div class="pane-foot">
+                    <p class="meta-strip mono" id="resultMeta" hidden>
+                        <span id="translationTime">--</span> ms<span class="meta-sep" aria-hidden="true"> · </span><span id="wordCount">--</span> words<span class="meta-sep" aria-hidden="true"> · </span><span id="resultCharCount">0 chars</span>
+                    </p>
+                    <button type="button" id="copyBtn" class="icon-btn" disabled title="Copy translation" aria-label="Copy translation">
+                        <i class="fas fa-copy" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Result insights: label type and terminology -->
+        <div class="insights">
+            <div id="terminologyNote" class="insight terminology-note" hidden></div>
+        </div>
+
+        <!-- Review and this session's translations -->
+        <section class="workspace" aria-label="Review and recent translations">
+            <div class="ws-bar">
+                <div class="ws-tabs" role="tablist" aria-label="Review and recent translations">
+                    <button type="button" class="ws-tab is-active" role="tab" id="tabReview" aria-selected="true" aria-controls="reviewPanel">
+                        <i class="fas fa-clipboard-check" aria-hidden="true"></i>Review
+                    </button>
+                    <button type="button" class="ws-tab" role="tab" id="tabRecent" aria-selected="false" aria-controls="recentPanel" tabindex="-1">
+                        <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>Recent <span class="ws-count mono" id="recentCount">0</span>
+                    </button>
+                </div>
+                <span class="session-stats mono">
+                    <span><span id="sessionTranslations">0</span> translated</span>
+                    <span><span id="sessionTests">0</span> saved</span>
+                </span>
+            </div>
+
+            <!-- Quality assessment -->
+            <div class="ws-panel" id="reviewPanel" role="tabpanel" aria-labelledby="tabReview">
+                <div class="review-grid">
+                    <fieldset class="card-soft review-outcome">
+                        <legend class="card-label">Outcome <span class="req">*</span></legend>
+                        <!-- The select stays the source of truth; the choices below set it -->
+                        <select class="visually-hidden" id="outcome" name="outcome" required tabindex="-1" aria-hidden="true">
+                            <option value="">Select Outcome</option>
+                            <option value="Success">Success</option>
+                            <option value="Partial">Partial</option>
+                            <option value="Failure">Failed</option>
+                        </select>
+                        <div class="stamp-choices">
+                            <input type="radio" class="stamp-radio" name="outcomeChoice" id="outcomeChoiceSuccess" value="Success">
+                            <label class="stamp stamp-choice stamp--success" for="outcomeChoiceSuccess">
+                                <i class="fas fa-check" aria-hidden="true"></i>Success
+                            </label>
+                            <input type="radio" class="stamp-radio" name="outcomeChoice" id="outcomeChoicePartial" value="Partial">
+                            <label class="stamp stamp-choice stamp--partial" for="outcomeChoicePartial">
+                                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>Partial
+                            </label>
+                            <input type="radio" class="stamp-radio" name="outcomeChoice" id="outcomeChoiceFailure" value="Failure">
+                            <label class="stamp stamp-choice stamp--failed" for="outcomeChoiceFailure">
+                                <i class="fas fa-xmark" aria-hidden="true"></i>Failed
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <div class="card-soft">
+                        <label for="accuracy" class="card-label">Accuracy (%) <span class="req">*</span></label>
+                        <div class="input-group">
+                            <input type="number" class="form-control mono" id="accuracy" name="accuracy" min="0"
+                                max="100" step="0.1" placeholder="0–100" required>
+                            <span class="input-group-text mono" aria-hidden="true">%</span>
+                        </div>
+                        <div class="progress mt-2" aria-hidden="true">
+                            <div class="progress-bar bg-success" role="progressbar" id="accuracyProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="card-soft">
+                        <label for="testedBy" class="card-label">Tested by <span class="req">*</span></label>
+                        <input type="text" class="form-control" id="testedBy" name="testedBy"
+                            placeholder="Your name" required>
+                    </div>
+
+                    <div class="card-soft review-wide">
+                        <label for="observation" class="card-label">Observation <span class="optional">optional</span></label>
+                        <textarea class="form-control" id="observation" name="observation" rows="3" dir="auto"
+                            maxlength="500" placeholder="What reads well, what doesn't…"></textarea>
+                        <div class="form-text mono"><span id="observationCharCount">0</span>/500</div>
+                    </div>
+                </div>
+
+                <div class="review-actions">
+                    <button type="button" id="saveTestResultsBtn" class="btn btn-primary btn-pill">
+                        <i class="fas fa-save me-2"></i>Save Test Results
+                    </button>
+                </div>
+            </div>
+
+            <!-- Recent: translations made in this browser tab (kept in memory only) -->
+            <div class="ws-panel" id="recentPanel" role="tabpanel" aria-labelledby="tabRecent" hidden>
+                <div class="history-grid" id="historyList"></div>
+                <p class="history-empty" id="historyEmpty">Translations you make in this tab show up here. Select one to load it again.</p>
+            </div>
+        </section>
+
+        <!-- Status Area -->
+        <div id="statusArea"></div>
+    </main>
+
+        <footer class="app-foot">
+            <span>DN Translator · DataNub</span>
+            <time id="slugDate"></time>
+        </footer>
+    </div>
+
+    <script src="/static/js/site.js"></script>
+
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/translator.js"></script>
+</body>
+
+</html>

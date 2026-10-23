@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment variables / credentials
+.env
+.env.local
+.env.*.local
+*service-account*.json
+
+# Local database
+data/
+*.db
+*.db-journal
+*.sqlite
+
+# Build output / logs
+gen/
+*.log
+npm-debug.log*
+
+# IDEs / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

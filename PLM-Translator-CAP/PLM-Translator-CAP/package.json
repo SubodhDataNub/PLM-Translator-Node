@@ -1,0 +1,44 @@
+{
+  "name": "plm-translator-cap",
+  "version": "1.0.0",
+  "description": "DN Translator - SAP CAP (Node.js) application for label translation using Google Cloud Translation API",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "cds-serve",
+    "watch": "cds watch",
+    "deploy:db": "cds deploy --to sqlite"
+  },
+  "dependencies": {
+    "@cap-js/sqlite": "^3.1.2",
+    "@google-cloud/translate": "^10.1.1",
+    "@sap/cds": "^10.2.1",
+    "dotenv": "^18.0.4",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@sap/cds-dk": "^10.2.0"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
+  },
+  "allowScripts": {
+    "sqlite3": true,
+    "better-sqlite3": true
+  },
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "sqlite",
+        "credentials": {
+          "url": "data/plm_translator.db"
+        }
+      }
+    }
+  }
+}

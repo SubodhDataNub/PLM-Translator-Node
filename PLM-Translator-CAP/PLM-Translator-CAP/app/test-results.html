@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+
+    <!-- Apply the saved theme before first paint (the toggle lives in static/js/site.js) -->
+    <script>
+        (function () {
+            let choice = 'system';
+            try { choice = localStorage.getItem('dn-theme') || 'system'; } catch (e) { /* storage blocked */ }
+            const root = document.documentElement;
+            if (choice === 'light' || choice === 'dark') root.dataset.theme = choice;
+            const dark = choice === 'dark' || (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            root.dataset.bsTheme = dark ? 'dark' : 'light';
+        })();
+    </script>
+
+    <!-- Fonts: DM Sans (UI), DM Mono (numbers), Roboto Slab (product name, matches the logo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400..700&family=Roboto+Slab:wght@700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="/static/css/tokens.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+
+    <title>Test results · DN Translator</title>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <!-- The app card: opened here, closed in partials/footer.html -->
+    <div class="app-shell">
+        <header class="topbar">
+            <a class="brand" href="/">
+                <img class="brand-logo" src="/static/images/datanub-logo.png" alt="DataNub" width="134" height="42">
+                <span class="brand-name">Translator</span>
+            </a>
+
+            <nav class="topnav" aria-label="Main">
+                <a class="topnav-link" href="/">
+                    <i class="fas fa-language" aria-hidden="true"></i><span class="topnav-long">Single translation</span><span class="topnav-short">Single</span>
+                </a>
+                <a class="topnav-link" href="/mass-translation.html">
+                    <i class="fas fa-file-excel" aria-hidden="true"></i><span class="topnav-long">Mass translation</span><span class="topnav-short">Mass</span>
+                </a>
+                <a class="topnav-link is-active" href="/test-results.html" aria-current="page">
+                    <i class="fas fa-list-check" aria-hidden="true"></i><span class="topnav-long">Test results</span><span class="topnav-short">Results</span>
+                </a>
+            </nav>
+
+            <div class="theme-switch" role="group" aria-label="Color theme">
+                <button type="button" class="theme-option" data-theme-choice="system" aria-pressed="true" title="Match system">
+                    <i class="fas fa-circle-half-stroke" aria-hidden="true"></i><span class="visually-hidden">System theme</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-choice="light" aria-pressed="false" title="Light">
+                    <i class="fas fa-sun" aria-hidden="true"></i><span class="visually-hidden">Light theme</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-choice="dark" aria-pressed="false" title="Dark">
+                    <i class="fas fa-moon" aria-hidden="true"></i><span class="visually-hidden">Dark theme</span>
+                </button>
+            </div>
+        </header>
+
+
+    
+    <main id="main" class="page">
+        <header class="page-intro">
+            <div>
+                <h1>Test results</h1>
+                <p class="lede">Every saved review and mass translation row. Filter, inspect or export.</p>
+            </div>
+            <div class="head-actions">
+                <button type="button" class="btn btn-quiet btn-pill" onclick="refreshResults()">
+                    <i class="fas fa-sync-alt me-2" aria-hidden="true"></i>Refresh
+                </button>
+                <button type="button" class="btn btn-primary btn-pill" id="exportBtn" onclick="exportResults()">
+                    <i class="fas fa-download me-2" aria-hidden="true"></i>Export Excel
+                </button>
+            </div>
+        </header>
+
+        <!-- Statistics -->
+        <section class="stat-grid stat-grid--5" aria-label="Statistics">
+            <div class="stat-card">
+                <span class="stat-label" id="totalLabel">Records</span>
+                <span class="stat-value mono" id="totalResults">–</span>
+            </div>
+            <div class="stat-card stat-card--success">
+                <span class="stat-label"><i class="fas fa-check" aria-hidden="true"></i>Successful</span>
+                <span class="stat-value mono" id="successResults">–</span>
+            </div>
+            <div class="stat-card stat-card--partial">
+                <span class="stat-label"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i>Partial</span>
+                <span class="stat-value mono" id="partialResults">–</span>
+            </div>
+            <div class="stat-card stat-card--failed">
+                <span class="stat-label"><i class="fas fa-xmark" aria-hidden="true"></i>Failed</span>
+                <span class="stat-value mono" id="failedResults">–</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Success rate</span>
+                <span class="stat-value mono" id="successRate">–</span>
+            </div>
+        </section>
+
+        <!-- Filters and Search -->
+        <section class="filter-bar panel" role="search" aria-label="Filter test results">
+            <div class="filter-field filter-field--search">
+                <label for="searchInput" class="form-label">Search <span class="optional">press Enter</span></label>
+                <div class="input-icon">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="Name, text or observation">
+                </div>
+            </div>
+            <div class="filter-field">
+                <label for="outcomeFilter" class="form-label">Outcome</label>
+                <select class="form-select" id="outcomeFilter">
+                    <option value="">All outcomes</option>
+                    <option value="Success">Success</option>
+                    <option value="Partial">Partial</option>
+                    <option value="Failed">Failed</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="languageFilter" class="form-label">Language</label>
+                <select class="form-select" id="languageFilter">
+                    <option value="">All languages</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="sortBy" class="form-label">Sort</label>
+                <select class="form-select" id="sortBy">
+                    <option value="id_desc">Newest ID first</option>
+                    <option value="id_asc">Oldest ID first</option>
+                    <option value="created_at_desc">Newest date first</option>
+                    <option value="created_at_asc">Oldest date first</option>
+                    <option value="accuracy_desc">Highest accuracy</option>
+                    <option value="accuracy_asc">Lowest accuracy</option>
+                </select>
+            </div>
+            <div class="filter-field filter-field--action">
+                <button type="button" class="btn btn-quiet btn-pill" onclick="clearFilters()">
+                    <i class="fas fa-times me-2" aria-hidden="true"></i>Clear
+                </button>
+            </div>
+        </section>
+
+        <!-- Results Table -->
+        <section class="results-card" aria-labelledby="tableTitle">
+            <div class="table-head">
+                <h2 class="table-title" id="tableTitle">Records</h2>
+                <span class="table-count mono" id="tableCount"></span>
+            </div>
+
+            <div id="resultsBody">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-foot">
+                <span class="table-count">Filters, sorting and paging run on the server (OData).</span>
+                <a href="/odata/v4/translator/TestResults?$top=50&amp;$orderby=ID%20desc" class="btn btn-quiet btn-sm" target="_blank" rel="noopener">
+                    <i class="fas fa-code me-1" aria-hidden="true"></i>OData JSON
+                </a>
+            </div>
+        </section>
+
+        <!-- Pagination Controls -->
+        <div class="pager" id="pager" hidden>
+            <nav aria-label="Test results pagination">
+                <ul class="pagination" id="pagination"></ul>
+            </nav>
+
+            <!-- Per-page selector -->
+            <div class="per-page">
+                <label for="perPageSelect" class="form-label">Records per page</label>
+                <select class="form-select form-select-sm" id="perPageSelect" onchange="changePerPage(this.value)">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+        </div>
+    </main>
+
+        <footer class="app-foot">
+            <span>DN Translator · DataNub</span>
+            <time id="slugDate"></time>
+        </footer>
+    </div>
+
+    <script src="/static/js/site.js"></script>
+
+
+    <!-- Result Details Modal -->
+    <div class="modal fade" id="resultDetailsModal" tabindex="-1" aria-labelledby="resultDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="resultDetailsModalLabel">Result details</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="resultDetailsContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-tonal btn-pill" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script>
+        const SORTS = ['id_desc', 'id_asc', 'created_at_desc', 'created_at_asc', 'accuracy_desc', 'accuracy_asc'];
+        const PER_PAGE_OPTIONS = [25, 50, 100, 200];
+
+        /** Page state, kept in the URL (page, per_page, outcome, language, q, sort) like the Node.js version */
+        function readState() {
+            const params = new URLSearchParams(window.location.search);
+            const intParam = (name, fallback) => {
+                const value = parseInt(params.get(name), 10);
+                return Number.isNaN(value) || value < 1 ? fallback : value;
+            };
+            const sort = params.get('sort') || 'id_desc';
+            return {
+                page: intParam('page', 1),
+                perPage: Math.min(intParam('per_page', 50), 200),
+                outcome: (params.get('outcome') || '').trim(),
+                language: (params.get('language') || '').trim(),
+                search: (params.get('q') || '').trim(),
+                sort: SORTS.includes(sort) ? sort : 'id_desc'
+            };
+        }
+
+        function writeState(state) {
+            const params = new URLSearchParams();
+            if (state.page > 1) params.set('page', String(state.page));
+            if (state.perPage !== 50) params.set('per_page', String(state.perPage));
+            if (state.outcome) params.set('outcome', state.outcome);
+            if (state.language) params.set('language', state.language);
+            if (state.search) params.set('q', state.search);
+            if (state.sort !== 'id_desc') params.set('sort', state.sort);
+            const query = params.toString();
+            history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : ''));
+        }
+
+        function isFiltered(state) {
+            return Boolean(state.outcome || state.language || state.search);
+        }
+
+        let state = readState();
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            syncControls();
+
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyFilters();
+                }
+            });
+            document.getElementById('outcomeFilter').addEventListener('change', applyFilters);
+            document.getElementById('languageFilter').addEventListener('change', applyFilters);
+            document.getElementById('sortBy').addEventListener('change', applyFilters);
+
+            // Event delegation: view details, pagination
+            document.addEventListener('click', function(e) {
+                const detailsLink = e.target.closest('.dropdown-item[data-result-id]');
+                if (detailsLink) {
+                    e.preventDefault();
+                    viewDetails(parseInt(detailsLink.getAttribute('data-result-id'), 10));
+                    return;
+                }
+                const pageLink = e.target.closest('.page-link[data-page]');
+                if (pageLink) {
+                    e.preventDefault();
+                    goToPage(parseInt(pageLink.getAttribute('data-page'), 10));
+                }
+            });
+
+            loadLanguageFilter();
+            loadResults();
+        });
+
+        function syncControls() {
+            document.getElementById('searchInput').value = state.search;
+            document.getElementById('outcomeFilter').value = state.outcome;
+            document.getElementById('sortBy').value = state.sort;
+            const perPageSelect = document.getElementById('perPageSelect');
+            if (!PER_PAGE_OPTIONS.includes(state.perPage)) {
+                perPageSelect.add(new Option(String(state.perPage), String(state.perPage)));
+            }
+            perPageSelect.value = String(state.perPage);
+            setLanguageFilterValue(state.language);
+        }
+
+        function setLanguageFilterValue(value) {
+            const select = document.getElementById('languageFilter');
+            if (value && !Array.from(select.options).some(option => option.value === value)) {
+                select.add(new Option(value, value));
+            }
+            select.value = value;
+        }
+
+        /** Distinct stored target languages for the language filter */
+        async function loadLanguageFilter() {
+            try {
+                const languages = await DNApi.resultLanguages();
+                const select = document.getElementById('languageFilter');
+                select.length = 1;
+                languages.forEach(lang => select.add(new Option(lang, lang)));
+                setLanguageFilterValue(state.language);
+            } catch (error) {
+                console.error('Could not load the language filter:', error);
+            }
+        }
+
+        async function loadResults() {
+            writeState(state);
+            const filters = { outcome: state.outcome, language: state.language, search: state.search };
+            const body = document.getElementById('resultsBody');
+
+            try {
+                const [stats, firstPage] = await Promise.all([
+                    DNApi.statistics(filters),
+                    DNApi.listTestResults({ ...filters, page: state.page, perPage: state.perPage, sort: state.sort })
+                ]);
+
+                // Keep the page within range when filters shrink the result set
+                const pages = Math.max(1, Math.ceil(firstPage.total / state.perPage));
+                let page = firstPage;
+                if (state.page > pages) {
+                    state.page = pages;
+                    writeState(state);
+                    page = await DNApi.listTestResults({ ...filters, page: state.page, perPage: state.perPage, sort: state.sort });
+                }
+
+                renderStats(stats);
+                renderTable(page.results, page.total);
+                renderPagination(page.total);
+            } catch (error) {
+                console.error('Error loading test results:', error);
+                body.innerHTML = `
+                    <div class="alert alert-danger m-3">
+                        <i class="fas fa-exclamation-triangle me-2" aria-hidden="true"></i>
+                        Error loading test results: ${escapeHtml(error.message)}
+                    </div>`;
+            }
+        }
+
+        function renderStats(stats) {
+            document.getElementById('totalLabel').textContent = isFiltered(state) ? 'Matching' : 'Records';
+            document.getElementById('totalResults').textContent = stats.total;
+            document.getElementById('successResults').textContent = stats.success;
+            document.getElementById('partialResults').textContent = stats.partial;
+            document.getElementById('failedResults').textContent = stats.failed;
+            document.getElementById('successRate').textContent = `${Number(stats.successRate || 0).toFixed(1)}%`;
+        }
+
+        function accuracyCell(accuracy) {
+            if (!accuracy) return '<span class="text-muted">–</span>';
+            const level = accuracy >= 80 ? 'is-high' : accuracy >= 60 ? 'is-mid' : 'is-low';
+            const width = Math.max(0, Math.min(100, Number(accuracy)));
+            return `
+                <span class="accuracy-cell">
+                    <span class="accuracy-bar" aria-hidden="true"><span class="accuracy-fill ${level}" style="width: ${width}%"></span></span>
+                    <span class="mono">${Number(accuracy).toFixed(1)}%</span>
+                </span>`;
+        }
+
+        function rowClass(outcome) {
+            if (outcome === 'Success') return ' table-success-light';
+            if (outcome === 'Partial') return ' table-warning-light';
+            if (outcome === 'Failed' || outcome === 'Failure') return ' table-danger-light';
+            return '';
+        }
+
+        /** 'YYYY-MM-DD <muted>HH:MM</muted>' in UTC, like the stored timestamps */
+        function createdCell(createdAt) {
+            if (!createdAt) return '<span class="text-muted">–</span>';
+            const iso = new Date(createdAt).toISOString();
+            return `${iso.slice(0, 10)} <span class="text-muted">${iso.slice(11, 16)}</span>`;
+        }
+
+        function renderTable(results, total) {
+            const body = document.getElementById('resultsBody');
+            const start = results.length ? (state.page - 1) * state.perPage + 1 : 0;
+            const end = (state.page - 1) * state.perPage + results.length;
+            const pages = Math.max(1, Math.ceil(total / state.perPage));
+            document.getElementById('tableCount').innerHTML =
+                `${start}–${end} of <span id="totalResultsFooter">${total}</span>` +
+                (pages > 1 ? ` · page ${state.page} of ${pages}` : '');
+
+            if (!results.length && isFiltered(state)) {
+                body.innerHTML = `
+                    <div class="empty-state">
+                        <span class="empty-mark" aria-hidden="true"><i class="fas fa-filter"></i></span>
+                        <h3>No results match these filters</h3>
+                        <p>Try another search, outcome or language, or clear the filters to see every record.</p>
+                        <button type="button" class="btn btn-tonal btn-pill" onclick="clearFilters()">
+                            <i class="fas fa-times me-2" aria-hidden="true"></i>Clear filters
+                        </button>
+                    </div>`;
+                return;
+            }
+            if (!results.length) {
+                body.innerHTML = `
+                    <div class="empty-state">
+                        <span class="empty-mark" aria-hidden="true"><i class="fas fa-clipboard-list"></i></span>
+                        <h3>No test results yet</h3>
+                        <p>Translate a label and save a review, or run a mass translation. Every result lands here.</p>
+                        <div class="empty-actions">
+                            <a href="/" class="btn btn-primary btn-pill">
+                                <i class="fas fa-language me-2" aria-hidden="true"></i>Single translation
+                            </a>
+                            <a href="/mass-translation.html" class="btn btn-tonal btn-pill">
+                                <i class="fas fa-file-excel me-2" aria-hidden="true"></i>Mass translation
+                            </a>
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            const rows = results.map(result => {
+                const id = escapeHtml(result.ID);
+                return `
+                <tr class="result-row${rowClass(result.outcome)}" data-result-id="${id}">
+                    <td class="mono cell-id" data-label="ID">#${id}</td>
+                    <td data-label="Status">${getStatusStamp(result.outcome)}</td>
+                    <td data-label="Accuracy">${accuracyCell(result.accuracy)}</td>
+                    <td data-label="Tested by">${result.testedBy
+                        ? `<span class="cell-truncate cell-tester" title="${escapeHtml(result.testedBy)}">${escapeHtml(result.testedBy)}</span>`
+                        : '<span class="text-muted">–</span>'}</td>
+                    <td data-label="Language">${result.targetLanguage
+                        ? `<span class="mono cell-lang">${escapeHtml(result.targetLanguage)}</span>`
+                        : '<span class="text-muted">–</span>'}</td>
+                    <td data-label="Observation">${result.observation
+                        ? `<span class="cell-truncate cell-observation" dir="auto" title="${escapeHtml(result.observation)}">${escapeHtml(result.observation)}</span>`
+                        : '<span class="text-muted">No observation</span>'}</td>
+                    <td class="mono cell-date" data-label="Created">${createdCell(result.createdAt)}</td>
+                    <td class="cell-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-quiet btn-sm icon-btn" type="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions for result #${id}">
+                                <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" href="#" data-result-id="${id}">
+                                        <i class="fas fa-eye me-2" aria-hidden="true"></i>View details
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            body.innerHTML = `
+                <div class="table-container">
+                    <table class="table table-hover mb-0" id="resultsTable">
+                        <thead class="sticky-top">
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Accuracy</th>
+                                <th scope="col">Tested by</th>
+                                <th scope="col">Language</th>
+                                <th scope="col">Observation</th>
+                                <th scope="col">Created</th>
+                                <th scope="col"><span class="visually-hidden">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+            initDropdowns();
+        }
+
+        /** Page numbers with null for gaps (same algorithm as the Node.js version's iterPages) */
+        function iterPages(page, pages, leftEdge = 1, leftCurrent = 1, rightCurrent = 2, rightEdge = 1) {
+            const result = [];
+            const range = (start, end) => { for (let i = start; i < end; i++) result.push(i); };
+            const pagesEnd = pages + 1;
+            if (pagesEnd === 1) return result;
+            const leftEnd = Math.min(1 + leftEdge, pagesEnd);
+            range(1, leftEnd);
+            if (leftEnd === pagesEnd) return result;
+            const midStart = Math.max(leftEnd, page - leftCurrent);
+            const midEnd = Math.min(page + rightCurrent + 1, pagesEnd);
+            if (midStart - leftEnd > 0) result.push(null);
+            range(midStart, midEnd);
+            if (midEnd === pagesEnd) return result;
+            const rightStart = Math.max(midEnd, pagesEnd - rightEdge);
+            if (rightStart - midEnd > 0) result.push(null);
+            range(rightStart, pagesEnd);
+            return result;
+        }
+
+        function renderPagination(total) {
+            const pages = Math.ceil(total / state.perPage);
+            const pager = document.getElementById('pager');
+            pager.hidden = pages <= 1;
+            if (pages <= 1) return;
+
+            const hasPrev = state.page > 1;
+            const hasNext = state.page < pages;
+            const items = [`
+                <li class="page-item ${hasPrev ? '' : 'disabled'}">
+                    <a class="page-link" href="#" ${hasPrev ? `data-page="${state.page - 1}"` : ''} aria-label="Previous">
+                        <span aria-hidden="true"><i class="fas fa-chevron-left"></i></span>
+                    </a>
+                </li>`];
+            iterPages(state.page, pages).forEach(pageNum => {
+                if (pageNum === null) {
+                    items.push('<li class="page-item disabled"><span class="page-link">…</span></li>');
+                } else if (pageNum === state.page) {
+                    items.push(`<li class="page-item active" aria-current="page"><span class="page-link">${pageNum}</span></li>`);
+                } else {
+                    items.push(`<li class="page-item"><a class="page-link" href="#" data-page="${pageNum}">${pageNum}</a></li>`);
+                }
+            });
+            items.push(`
+                <li class="page-item ${hasNext ? '' : 'disabled'}">
+                    <a class="page-link" href="#" ${hasNext ? `data-page="${state.page + 1}"` : ''} aria-label="Next">
+                        <span aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+                    </a>
+                </li>`);
+            document.getElementById('pagination').innerHTML = items.join('');
+        }
+
+        function goToPage(page) {
+            if (!page || page === state.page) return;
+            state.page = page;
+            loadResults();
+            document.getElementById('tableTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Apply server-side filters and sorting
+        function applyFilters() {
+            state = {
+                ...state,
+                page: 1,
+                search: document.getElementById('searchInput').value.trim(),
+                outcome: document.getElementById('outcomeFilter').value,
+                language: document.getElementById('languageFilter').value,
+                sort: document.getElementById('sortBy').value
+            };
+            loadResults();
+        }
+
+        // Clear all filters
+        function clearFilters() {
+            state = { ...state, page: 1, search: '', outcome: '', language: '', sort: 'id_desc' };
+            syncControls();
+            loadResults();
+        }
+
+        // Change per page count
+        function changePerPage(perPage) {
+            state.perPage = parseInt(perPage, 10) || 50;
+            state.page = 1;
+            loadResults();
+        }
+
+        // Refresh results
+        function refreshResults() {
+            loadLanguageFilter();
+            loadResults();
+        }
+
+        // View result details
+        async function viewDetails(resultId) {
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('resultDetailsModal'));
+            const content = document.getElementById('resultDetailsContent');
+            content.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading result details...</p>
+                </div>`;
+            modal.show();
+
+            try {
+                const result = await DNApi.getTestResult(resultId);
+                content.innerHTML = `
+                    <dl class="detail-list">
+                        <div><dt>ID</dt><dd class="mono">#${escapeHtml(result.ID)}</dd></div>
+                        <div><dt>Outcome</dt><dd>${getStatusStamp(result.outcome)}</dd></div>
+                        <div><dt>Accuracy</dt><dd class="mono">${escapeHtml(result.accuracy ? Number(result.accuracy).toFixed(1) + '%' : '-')}</dd></div>
+                        <div><dt>Tested by</dt><dd>${escapeHtml(result.testedBy || '-')}</dd></div>
+                        <div><dt>Language</dt><dd class="mono">${escapeHtml(result.targetLanguage || '-')}</dd></div>
+                        <div><dt>Session</dt><dd class="mono">${escapeHtml(result.sessionId || '-')}</dd></div>
+                        <div><dt>Created</dt><dd class="mono">${escapeHtml(formatDateTime(result.createdAt))}</dd></div>
+                    </dl>
+                    <div class="detail-texts">
+                        <section>
+                            <h3 class="detail-label">Original text</h3>
+                            <div class="detail-text" dir="auto">${escapeHtml(result.textToTranslate || 'No original text recorded')}</div>
+                        </section>
+                        <section>
+                            <h3 class="detail-label">Translated text</h3>
+                            <div class="detail-text" dir="auto">${escapeHtml(result.translatedText || 'No translation recorded')}</div>
+                        </section>
+                    </div>
+                    <section>
+                        <h3 class="detail-label">Observation</h3>
+                        <div class="detail-text" dir="auto">${escapeHtml(result.observation || 'No observation recorded')}</div>
+                    </section>`;
+            } catch (error) {
+                console.error('Error loading result details:', error);
+                content.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6>Error loading result details</h6>
+                        <small>${escapeHtml(error.message)}</small>
+                    </div>`;
+            }
+        }
+
+        // Outcome as a proof stamp: icon + text, never color alone
+        function getStatusStamp(outcome) {
+            switch (outcome) {
+                case 'Success':
+                    return '<span class="stamp stamp--success"><i class="fas fa-check" aria-hidden="true"></i>Success</span>';
+                case 'Partial':
+                    return '<span class="stamp stamp--partial"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i>Partial</span>';
+                case 'Failed':
+                case 'Failure':
+                    return '<span class="stamp stamp--failed"><i class="fas fa-xmark" aria-hidden="true"></i>Failed</span>';
+                default:
+                    return `<span class="stamp stamp--unknown"><i class="fas fa-question" aria-hidden="true"></i>${escapeHtml(outcome || 'Unknown')}</span>`;
+            }
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML.replace(/"/g, '&quot;');
+        }
+
+        // Helper function to format date time
+        function formatDateTime(dateTimeString) {
+            if (!dateTimeString) return '-';
+            const date = new Date(dateTimeString);
+            return Number.isNaN(date.getTime()) ? dateTimeString : date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toastColors = {
+                success: 'bg-success',
+                warning: 'bg-warning',
+                error: 'bg-danger',
+                info: 'bg-info'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white ${toastColors[type] || 'bg-success'} border-0`;
+            toast.style.position = 'fixed';
+            toast.style.top = '20px';
+            toast.style.right = '20px';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>`;
+
+            document.body.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+            bsToast.show();
+            toast.addEventListener('hidden.bs.toast', () => toast.remove());
+        }
+
+        // Export results using current filters (outcome, language, search)
+        async function exportResults() {
+            const button = document.getElementById('exportBtn');
+            button.disabled = true;
+            try {
+                await DNApi.exportTestResults({ outcome: state.outcome, language: state.language, search: state.search });
+            } catch (error) {
+                showToast(`Export failed: ${escapeHtml(error.message)}`, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        // Dropdowns in the scrollable table: keep the menu clear of the sticky header
+        function initDropdowns() {
+            document.querySelectorAll('.table-container [data-bs-toggle="dropdown"]').forEach(button => {
+                new bootstrap.Dropdown(button, {
+                    boundary: 'clippingParents',
+                    display: 'dynamic',
+                    popperConfig: {
+                        strategy: 'absolute',
+                        modifiers: [
+                            { name: 'preventOverflow', options: { boundary: 'clippingParents', padding: 8 } },
+                            { name: 'flip', options: { fallbackPlacements: ['top-start', 'top-end', 'bottom-start', 'bottom-end'], padding: 8 } },
+                            { name: 'offset', options: { offset: [0, 4] } },
+                            { name: 'computeStyles', options: { adaptive: false } }
+                        ]
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
