@@ -1,6 +1,6 @@
 # DN Translator (SAP CAP)
 
-SAP Cloud Application Programming Model (CAP, Node.js) version of DN Translator. It has the same three pages as `PLM-Translator-Node` and translates with the **same Google Cloud Translation client**. The difference is the backend: the Express routes and Knex are replaced by a CDS data model and an OData V4 service, and data is stored in a local SQLite database.
+SAP Cloud Application Programming Model (CAP, Node.js) version of DN Translator. It has the same three pages as `PLM-Translator-Node`, built as an SAPUI5 (Fiori) app, and translates with the **same Google Cloud Translation client**. The difference is the backend: the Express routes and Knex are replaced by a CDS data model and an OData V4 service, and data is stored in a local SQLite database.
 
 | Area | Node.js version | CAP version |
 |---|---|---|
@@ -8,7 +8,7 @@ SAP Cloud Application Programming Model (CAP, Node.js) version of DN Translator.
 | Data model | Knex table `test_results` | CDS entity `plm.translator.TestResults` (`db/schema.cds`) |
 | API | REST under `/api/*` | OData V4 under `/odata/v4/translator` (`srv/translator-service.cds`) |
 | Database | SQLite / Azure SQL / PostgreSQL | SQLite (`data/plm_translator.db`) via `@cap-js/sqlite` |
-| Pages | Nunjucks templates | Static HTML in `app/` that calls the OData service (`app/static/js/api.js`) |
+| Pages | Nunjucks templates | SAPUI5 freestyle app with the Fiori Horizon theme (`app/translator/webapp`) |
 | Translation | `services/translator.js` | `srv/lib/translator.js`: the same code, unchanged |
 | Terminology | `services/terminology.js` + `Train_Data/` | `srv/lib/terminology.js` + `Train_Data/`: the same code and data |
 
@@ -25,12 +25,14 @@ npm start                 # http://localhost:4004
 
 The SQLite database file `data/plm_translator.db` and its tables are created on first start. Existing data is never dropped. To start again with an empty database, stop the server and delete the file.
 
-The pages are:
+The app opens at `http://localhost:4004/`, which redirects to `/translator/webapp/index.html`. Its pages are:
 
-- `http://localhost:4004/`: single translation and review
-- `http://localhost:4004/mass-translation.html`: Excel mass translation. `/mass-translation` redirects here.
-- `http://localhost:4004/test-results.html`: saved results with filters and Excel export. `/test-results` redirects here.
+- `#/`: single translation and review
+- `#/mass-translation`: Excel mass translation. `/mass-translation` and `/mass-translation.html` redirect here.
+- `#/test-results`: saved results with filters and Excel export. Filters and sort are kept in the URL, for example `#/test-results?outcome=Failed&language=fr`. `/test-results` and `/test-results.html` redirect here.
 - `http://localhost:4004/$fiori-preview/TranslatorService/TestResults#preview-app`: a Fiori elements list of the test results, generated from `srv/annotations.cds`
+
+The app loads SAPUI5 1.148 (a long-term maintenance release) from the SAP CDN at `ui5.sap.com`, so the browser needs internet access. There is no UI build step. The theme follows the operating system (Horizon or Horizon Dark), and the palette button in the header switches it.
 
 ## Google Cloud Translation
 
@@ -95,7 +97,15 @@ srv/lib/excel.js             Excel read/write helpers (from the Node.js version)
 srv/lib/mass-translation.js  Mass translation, validation, estimates, result workbooks
 srv/lib/utils.js             Helpers
 srv/lib/config.js            Google / batching settings from .env
-app/                         Pages, CSS, JS and images (served at /)
+app/translator/webapp/       SAPUI5 app (served at /translator/webapp/)
+  index.html                 Bootstrap: SAPUI5 from the SAP CDN, theme picked before start
+  manifest.json              App descriptor: OData V4 model, routes, libraries
+  Component.js               Loads the target languages once for all pages
+  view/, controller/         App shell, Translate, MassTranslation, TestResults (+ dialogs)
+  model/api.js               Calls the service actions and functions (Excel files as base64)
+  model/formatter.js         Outcome, accuracy and date formatting for the results
+  i18n/i18n.properties       All UI texts
+  css/style.css              Small additions to the Horizon theme
 Train_Data/                  Terminology database
 ```
 

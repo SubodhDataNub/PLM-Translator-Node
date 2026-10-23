@@ -1,0 +1,53 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:form="sap.ui.layout.form">
+    <Dialog
+        id="detailsDialog"
+        title="{i18n>detailsTitle}"
+        contentWidth="48rem"
+        resizable="true"
+        draggable="true"
+        class="sapUiResponsivePadding--header sapUiResponsivePadding--content sapUiResponsivePadding--footer">
+        <content>
+            <form:SimpleForm
+                editable="false"
+                layout="ColumnLayout"
+                columnsM="2"
+                columnsL="2"
+                columnsXL="2">
+                <form:content>
+                    <Label text="{i18n>colId}" />
+                    <Text text="#{path: 'ID', targetType: 'any'}" class="dnMono" />
+                    <Label text="{i18n>outcome}" />
+                    <ObjectStatus
+                        text="{path: 'outcome', formatter: '.formatter.outcomeText'}"
+                        state="{path: 'outcome', formatter: '.formatter.outcomeState'}"
+                        icon="{path: 'outcome', formatter: '.formatter.outcomeIcon'}" />
+                    <Label text="{i18n>colAccuracy}" />
+                    <Text text="{path: 'accuracy', targetType: 'any', formatter: '.formatter.accuracyText'}" class="dnMono" />
+                    <Label text="{i18n>colTestedBy}" />
+                    <Text text="{path: 'testedBy', formatter: '.formatter.orDash'}" />
+                    <Label text="{i18n>colLanguage}" />
+                    <Text text="{path: 'targetLanguage', formatter: '.formatter.orDash'}" class="dnMono" />
+                    <Label text="{i18n>session}" />
+                    <Text text="{path: 'sessionId', formatter: '.formatter.orDash'}" class="dnMono" />
+                    <Label text="{i18n>created}" />
+                    <Text text="{path: 'createdAt', targetType: 'any', formatter: '.formatter.dateTime'}" class="dnMono" />
+                </form:content>
+            </form:SimpleForm>
+
+            <VBox class="sapUiSmallMarginTop">
+                <Title text="{i18n>originalText}" level="H4" />
+                <Text text="{= ${textToTranslate} || ${i18n>noOriginal} }" renderWhitespace="true" class="dnDetailText" />
+                <Title text="{i18n>translatedText}" level="H4" class="sapUiSmallMarginTop" />
+                <Text text="{= ${translatedText} || ${i18n>noTranslation} }" renderWhitespace="true" class="dnDetailText" />
+                <Title text="{i18n>observation}" level="H4" class="sapUiSmallMarginTop" />
+                <Text text="{= ${observation} || ${i18n>noObservationRecorded} }" renderWhitespace="true" class="dnDetailText" />
+            </VBox>
+        </content>
+        <endButton>
+            <Button text="{i18n>close}" press=".onCloseDetails" />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

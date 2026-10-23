@@ -1,0 +1,33 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <ResponsivePopover
+        title="{i18n>themeTitle}"
+        placement="Bottom"
+        contentWidth="14rem">
+        <List mode="SingleSelectMaster" selectionChange=".onThemeSelect">
+            <StandardListItem
+                title="{i18n>themeSystem}"
+                icon="sap-icon://laptop"
+                selected="{= ${app>/theme} === 'system' }">
+                <customData>
+                    <core:CustomData key="theme" value="system" />
+                </customData>
+            </StandardListItem>
+            <StandardListItem
+                title="{i18n>themeLight}"
+                icon="sap-icon://light-mode"
+                selected="{= ${app>/theme} === 'light' }">
+                <customData>
+                    <core:CustomData key="theme" value="light" />
+                </customData>
+            </StandardListItem>
+            <StandardListItem
+                title="{i18n>themeDark}"
+                icon="sap-icon://dark-mode"
+                selected="{= ${app>/theme} === 'dark' }">
+                <customData>
+                    <core:CustomData key="theme" value="dark" />
+                </customData>
+            </StandardListItem>
+        </List>
+    </ResponsivePopover>
+</core:FragmentDefinition>

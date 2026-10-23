@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLM Translator</title>
+
+    <!-- Pick the theme before UI5 loads: the saved choice, otherwise the OS setting (see model/theme.js) -->
+    <script>
+        (function () {
+            var choice = 'system';
+            try { choice = localStorage.getItem('dn-theme') || 'system'; } catch (e) { /* storage blocked */ }
+            var dark = choice === 'dark' ||
+                (choice !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            window['sap-ui-config'] = { theme: dark ? 'sap_horizon_dark' : 'sap_horizon' };
+            if (dark) document.documentElement.classList.add('dnDark');
+        })();
+    </script>
+
+    <script id="sap-ui-bootstrap"
+        src="https://ui5.sap.com/1.148.13/resources/sap-ui-core.js"
+        data-sap-ui-resource-roots='{ "dn.translator": "./" }'
+        data-sap-ui-on-init="module:sap/ui/core/ComponentSupport"
+        data-sap-ui-compat-version="edge"
+        data-sap-ui-async="true"
+        data-sap-ui-xx-component-preload="off"
+        data-sap-ui-frame-options="trusted"></script>
+</head>
+
+<body class="sapUiBody">
+    <div data-sap-ui-component data-name="dn.translator" data-id="container" data-settings='{ "id": "translator" }'
+        data-height="100%"></div>
+</body>
+
+</html>

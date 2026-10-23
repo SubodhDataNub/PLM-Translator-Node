@@ -1,0 +1,173 @@
+/*
+ * DN Translator - a few additions to the SAP Horizon theme.
+ * Colors come from the theme's CSS variables, so light and dark both work.
+ */
+
+/* Product name in the header */
+.dnBrandName.sapMTitle {
+    color: #2D77B6;
+    font-weight: 700;
+}
+
+.dnDark .dnBrandName.sapMTitle {
+    color: #8FBCE8;
+}
+
+/* Translator panes: larger type for the label text, equal height side by side */
+.dnPanes {
+    gap: 1rem;
+}
+
+.dnPanes > .sapMFlexItem {
+    display: flex;
+}
+
+.dnPane.sapMPanel {
+    flex: 1;
+    min-width: 0; /* let the toolbar overflow into its menu on narrow screens */
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--sapElement_BorderCornerRadius);
+    box-shadow: var(--sapContent_Shadow0);
+    overflow: hidden;
+}
+
+.dnPane > .sapMPanelContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-bottom: none;
+}
+
+.dnPane .dnPaneText {
+    flex: 1;
+}
+
+.dnPaneText .sapMTextAreaInner {
+    font-size: 1.125rem;
+    line-height: 1.5;
+}
+
+.dnPaneFoot.sapMTB {
+    margin-top: auto;
+    padding: 0;
+}
+
+.dnShortcut.sapMText,
+.dnMeta.sapMText,
+.dnMuted.sapMText {
+    color: var(--sapContent_LabelColor);
+    font-size: var(--sapFontSmallSize);
+}
+
+.dnMono.sapMText,
+.dnMeta.sapMText {
+    font-family: var(--sapFontFamily);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Language chips under the pane headers (the source pane shows the detected language there) */
+.dnChipRow {
+    gap: 0.375rem;
+    min-height: 2.25rem;
+    margin-bottom: 0.5rem;
+}
+
+/* The detected language sits on the first line of chips, even when they wrap */
+.dnDetectedRow {
+    padding-top: 0.375rem;
+}
+
+.dnChip.sapMBtn .sapMBtnInner {
+    border-radius: 1rem;
+}
+
+/* Review and Recent: tabs, form and Save button form one card, like the panes above */
+.dnWorkspace.sapMITB {
+    border-radius: var(--sapElement_BorderCornerRadius);
+    box-shadow: var(--sapContent_Shadow0);
+    background: var(--sapGroup_ContentBackground);
+    overflow: hidden;
+}
+
+.dnWorkspace > .sapMITBContainerContent > .sapMITBContent {
+    background: transparent;
+    border-bottom: none;
+}
+
+.dnReviewActions.sapMTB {
+    background: transparent;
+    padding: 0 1rem 0.5rem;
+}
+
+.dnAccuracyBar.sapMPI {
+    margin-top: 0.5rem;
+    max-width: 16rem;
+}
+
+/* Mass translation: the Spreadsheet panel is also a drop zone */
+.dnDropZone.dnDragOver {
+    outline: 2px dashed var(--sapBrandColor);
+    outline-offset: -2px;
+    background: var(--sapList_SelectionBackgroundColor);
+}
+
+/* Key figures (results, statistics) */
+.dnKpiRow {
+    gap: 0.75rem;
+}
+
+.dnKpi {
+    min-width: 8.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--sapTile_BorderCornerRadius, 1rem);
+    background: var(--sapTile_Background);
+    box-shadow: var(--sapContent_Shadow0);
+}
+
+.dnKpiValue.sapMObjectNumber .sapMObjectNumberText {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* Test results filter bar */
+.dnFilterBar {
+    gap: 0.5rem 1rem;
+}
+
+.dnFilterField {
+    width: 12rem;
+}
+
+.dnFilterSearch {
+    width: 20rem;
+    max-width: 100%;
+}
+
+.dnFilterBar .sapMBtn.dnFilterField {
+    width: auto;
+}
+
+.dnTableAccuracy.sapMPI {
+    margin: 0;
+    max-width: 9rem;
+}
+
+/* Result details dialog: long label texts keep their line breaks */
+.dnDetailText.sapMText {
+    display: block;
+    margin-top: 0.25rem;
+    padding: 0.75rem;
+    border-radius: var(--sapElement_BorderCornerRadius);
+    background: var(--sapGroup_ContentBackground);
+    border: 1px solid var(--sapGroup_ContentBorderColor);
+}
+
+/* Phones: stack the filter fields full width */
+@media (max-width: 599px) {
+    .dnFilterField,
+    .dnFilterSearch {
+        width: 100%;
+    }
+}

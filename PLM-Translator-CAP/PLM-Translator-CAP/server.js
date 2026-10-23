@@ -1,7 +1,7 @@
 /**
  * Custom CAP server for DN Translator.
  * - creates the SQLite database file and its tables on first start
- * - serves the pages under the same paths as the Node.js version
+ * - opens the SAPUI5 app (app/translator/webapp) at / and keeps the old page URLs working
  * - allows long-running mass translation requests
  */
 'use strict';
@@ -15,9 +15,15 @@ const { terminology } = require('./srv/lib/terminology');
 // Long-running mass translations: allow up to 30 minutes per request
 const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
 
+// The SAPUI5 app and its pages (routes after #/); the old page URLs redirect to them
+const APP = '/translator/webapp/index.html';
 const PAGES = {
-    '/mass-translation': '/mass-translation.html',
-    '/test-results': '/test-results.html'
+    '/': APP,
+    '/index.html': APP,
+    '/mass-translation': `${APP}#/mass-translation`,
+    '/mass-translation.html': `${APP}#/mass-translation`,
+    '/test-results': `${APP}#/test-results`,
+    '/test-results.html': `${APP}#/test-results`
 };
 
 // The SQLite driver does not create missing folders
