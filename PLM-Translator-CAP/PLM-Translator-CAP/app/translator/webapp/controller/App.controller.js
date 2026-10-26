@@ -18,7 +18,6 @@ sap.ui.define([
                 this.byId("toolPage").setSideExpanded(false);
             }
 
-            // Highlight the page in the side navigation
             this.getRouter().attachRouteMatched((event) => {
                 view.getModel("app").setProperty("/selectedKey", event.getParameter("name"));
             });

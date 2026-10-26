@@ -24,15 +24,12 @@
 
         <f:content>
             <VBox>
-                <!-- Screen reader labels -->
                 <core:InvisibleText id="sourceLabel" text="{i18n>sourceLabel}" />
                 <core:InvisibleText id="translateShortcut" text="{i18n>shortcutDescription}" />
                 <core:InvisibleText id="languageLabel" text="{i18n>targetLanguage}" />
                 <core:InvisibleText id="translationLabel" text="{i18n>translationLabel}" />
 
-                <!-- Source and translation side by side -->
                 <FlexBox wrap="Wrap" alignItems="Stretch" class="dnPanes">
-                    <!-- Source -->
                     <Panel class="dnPane" backgroundDesign="Solid">
                         <layoutData>
                             <FlexItemData growFactor="1" shrinkFactor="1" baseSize="24rem" minWidth="0" />
@@ -43,7 +40,6 @@
                             </OverflowToolbar>
                         </headerToolbar>
 
-                        <!-- Same height as the language chips of the translation pane, so the text boxes line up -->
                         <FlexBox id="sourceChipRow" wrap="Wrap" alignItems="Start" class="dnChipRow dnDetectedRow">
                             <ObjectStatus
                                 text="{view>/detectedText}"
@@ -92,7 +88,6 @@
                         </OverflowToolbar>
                     </Panel>
 
-                    <!-- Translation -->
                     <Panel class="dnPane" backgroundDesign="Solid">
                         <layoutData>
                             <FlexItemData growFactor="1" shrinkFactor="1" baseSize="24rem" minWidth="0" />
@@ -117,7 +112,6 @@
                             </OverflowToolbar>
                         </headerToolbar>
 
-                        <!-- Language chips: recently used first (history icon), then the common languages -->
                         <FlexBox id="targetChipRow" wrap="Wrap" alignItems="Center" class="dnChipRow" items="{view>/chips}">
                             <ToggleButton
                                 text="{view>name}"
@@ -160,7 +154,6 @@
                     </Panel>
                 </FlexBox>
 
-                <!-- Label type and terminology applied to this translation -->
                 <MessageStrip
                     text="{view>/terminologyNote}"
                     visible="{= !!${view>/terminologyNote} }"
@@ -168,7 +161,6 @@
                     showIcon="true"
                     class="sapUiSmallMarginTop" />
 
-                <!-- Review and this session's translations -->
                 <IconTabBar
                     id="workspace"
                     selectedKey="{view>/tab}"

@@ -30,7 +30,6 @@
         <f:content>
             <VBox>
                 <l:Grid hSpacing="1" vSpacing="0">
-                    <!-- Steps 1 and 2: spreadsheet and languages -->
                     <VBox>
                         <layoutData>
                             <l:GridData span="XL8 L8 M12 S12" />
@@ -50,7 +49,6 @@
                                 enabled="{= !${view>/running} }" />
                             <Text text="{view>/fileSize}" visible="{view>/hasFile}" class="dnMeta sapUiTinyMarginTop" />
 
-                            <!-- Validation -->
                             <VBox visible="{view>/hasFile}" class="sapUiSmallMarginTop">
                                 <MessageStrip
                                     text="{view>/largeFileText}"
@@ -86,7 +84,6 @@
                                     <VBox>
                                         <Title text="{i18n>estimate}" level="H4" />
                                         <Text text="{i18n>estimateFirst}" visible="{= !${view>/validation} }" class="dnMuted sapUiTinyMarginTop" />
-                                        <!-- Before languages are chosen: the one-language estimate -->
                                         <form:SimpleForm
                                             visible="{= !!${view>/validation} &amp;&amp; !${view>/estimate} }"
                                             editable="false"
@@ -105,7 +102,6 @@
                                             text="{i18n>pickLanguagesForEstimate}"
                                             visible="{= !!${view>/validation} &amp;&amp; !${view>/estimate} }"
                                             class="dnMuted" />
-                                        <!-- With languages: the full estimate -->
                                         <form:SimpleForm
                                             visible="{= !!${view>/estimate} }"
                                             editable="false"
@@ -185,7 +181,6 @@
                         </Panel>
                     </VBox>
 
-                    <!-- Step 3: tester and start -->
                     <VBox>
                         <layoutData>
                             <l:GridData span="XL4 L4 M12 S12" />
@@ -223,7 +218,6 @@
                         </Panel>
                     </VBox>
 
-                    <!-- Results -->
                     <Panel id="resultsPanel" visible="{= !!${view>/result} }" backgroundDesign="Solid" class="sapUiSmallMarginTop">
                         <layoutData>
                             <l:GridData span="XL12 L12 M12 S12" />

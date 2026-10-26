@@ -1,7 +1,3 @@
-/**
- * Formatters for the test results: outcome status, accuracy and dates.
- * Older records may store a failure as "Failed" or "Failure"; both show as Failed.
- */
 sap.ui.define([], function () {
     "use strict";
 
@@ -57,7 +53,6 @@ sap.ui.define([], function () {
             return !accuracy;
         },
 
-        /** 'YYYY-MM-DD HH:MM' in UTC, like the stored timestamps */
         createdUtc(createdAt) {
             if (!createdAt) return "–";
             const date = new Date(createdAt);
@@ -66,7 +61,6 @@ sap.ui.define([], function () {
                 `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
         },
 
-        /** Local date and time for the details dialog */
         dateTime(value) {
             if (!value) return "–";
             const date = new Date(value);

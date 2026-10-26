@@ -1,8 +1,3 @@
-/**
- * DN Translator service implementation.
- * Translation goes through the Google Cloud Translation client in lib/translator.js, the same
- * client the Node.js version uses (Advanced v3 with the Translation LLM, or Basic v2 with an API key).
- */
 'use strict';
 
 const cds = require('@sap/cds');
@@ -20,10 +15,6 @@ const {
 const LOG = cds.log('translator');
 const INSERT_CHUNK_SIZE = 500;
 
-// ---------------------------------------------------------------------------
-// Query helpers: the outcome / language / search filters shared by statistics and export
-// ---------------------------------------------------------------------------
-
 const ref = (name) => ({ ref: [name] });
 const lower = (name) => ({ func: 'tolower', args: [ref(name)] });
 const like = (name, text) => [lower(name), 'like', { val: `%${String(text).toLowerCase()}%` }];
@@ -33,7 +24,6 @@ function isFailedFilter(outcome) {
     return String(outcome || '').toLowerCase().includes('fail');
 }
 
-/** Join conditions with 'and', each wrapped in parentheses */
 function and(conditions) {
     const where = [];
     conditions.forEach((condition, i) => {
@@ -50,7 +40,6 @@ function outcomeCondition(outcome) {
     return [ref('outcome'), '=', { val: outcome }];
 }
 
-/** CQL where clause for the test result filters (empty array: no filter) */
 function resultFilter({ outcome, language, search } = {}) {
     const conditions = [];
     outcome = String(outcome || '').trim();
@@ -58,7 +47,6 @@ function resultFilter({ outcome, language, search } = {}) {
     search = String(search || '').trim();
 
     if (outcome) conditions.push(outcomeCondition(outcome));
-    // target_language is stored as 'code-Name', so this matches either code or name
     if (language) conditions.push(like('targetLanguage', language));
     if (search) {
         const fields = ['testedBy', 'observation', 'textToTranslate', 'translatedText'];
@@ -81,7 +69,6 @@ function excelFile(fileName, buffer) {
     return { fileName, mimeType: XLSX_MIME, content: buffer.toString('base64') };
 }
 
-/** Decode a base64 upload, enforcing the upload size limit */
 function decodeUpload(req, fileName, content) {
     if (!content) return req.reject(400, 'No file uploaded');
     if (!fileName) return req.reject(400, 'No file selected');
@@ -98,10 +85,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
         const { TestResults } = this.entities;
         const db = cds.entities('plm.translator');
 
-        // -------------------------------------------------------------------
-        // IDs: sequential integers, like the auto-increment id of the Node.js version.
-        // Allocated in memory so concurrent inserts never collide (single server process).
-        // -------------------------------------------------------------------
         let nextId = null;
         let idInit = null;
         const allocateIds = async (count) => {
@@ -127,11 +110,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
 
         const languageList = () => translatorService.getSupportedLanguages();
 
-        // -------------------------------------------------------------------
-        // Test results entity
-        // -------------------------------------------------------------------
-
-        /** Saving a reviewed translation: validate and normalize like /api/save-test-results did */
         this.before('CREATE', TestResults, async (req) => {
             const data = req.data;
             if (!data.outcome) return req.reject(400, 'Outcome is required');
@@ -158,10 +136,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
                 req.data.accuracy = value;
             }
         });
-
-        // -------------------------------------------------------------------
-        // Translation
-        // -------------------------------------------------------------------
 
         this.on('languages', async () => {
             const languages = await languageList();
@@ -193,10 +167,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
 
         this.on('userInfo', () => getUserInfo());
 
-        // -------------------------------------------------------------------
-        // Test results: statistics, filters, export
-        // -------------------------------------------------------------------
-
         const count = async (where) => {
             const row = await withWhere(SELECT.one.from(db.TestResults).columns('count(1) as n'), where);
             return Number((row && row.n) || 0);
@@ -213,7 +183,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             const success = await count(withOutcome('Success'));
             const partial = await count(withOutcome('Partial'));
             let failed = await count(withOutcome('Failed'));
-            // Older records may use other outcome labels: count them as failed when nothing else is
             if (!filtered && failed === 0 && total > 0) failed = total - success - partial;
 
             return {
@@ -239,7 +208,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
                 'Translated Text': row.translatedText,
                 'Source Language': row.sourceLanguage,
                 'Target Language': row.targetLanguage,
-                // Show "Failed" for any failure variant
                 'Outcome': mass.isFailureOutcome(row.outcome) ? 'Failed' : row.outcome,
                 'Observation': row.observation,
                 'Accuracy (%)': row.accuracy,
@@ -252,10 +220,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             addRecordsSheet(workbook, 'Test Results', records);
             return excelFile(`test_results_${timestampForFilename()}.xlsx`, await workbookToBuffer(workbook));
         });
-
-        // -------------------------------------------------------------------
-        // Mass translation
-        // -------------------------------------------------------------------
 
         this.on('estimateProcessingTime', (req) => {
             const { recordCount, targetLanguages } = req.data;
@@ -317,7 +281,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
                     texts, targetLanguage, config.massTranslateBatchSize, { labelType }
                 );
 
-                // The label type of a row is the same for every language, so count it once
                 if (targetLanguage === targetLanguages[0]) {
                     for (const result of results) {
                         if (result.label_type in labelTypes) labelTypes[result.label_type] += 1;

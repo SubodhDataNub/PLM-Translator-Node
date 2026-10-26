@@ -6,11 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PLM Translator</title>
 
-    <!-- Pick the theme before UI5 loads: the saved choice, otherwise the OS setting (see model/theme.js) -->
     <script>
         (function () {
             var choice = 'system';
-            try { choice = localStorage.getItem('dn-theme') || 'system'; } catch (e) { /* storage blocked */ }
+            try { choice = localStorage.getItem('dn-theme') || 'system'; } catch (e) { }
             var dark = choice === 'dark' ||
                 (choice !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
             window['sap-ui-config'] = { theme: dark ? 'sap_horizon_dark' : 'sap_horizon' };

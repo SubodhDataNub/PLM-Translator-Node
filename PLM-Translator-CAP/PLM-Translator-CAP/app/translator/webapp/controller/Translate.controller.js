@@ -12,7 +12,6 @@ sap.ui.define([
     const HISTORY_SIZE = 12;
     const OUTCOMES = ["Success", "Partial", "Failure"];
     const FAILURE_INDEX = 2;
-    // Language chips: up to MAX_RECENT recently used languages, then the common ones
     const COMMON_LANGUAGES = ["es", "fr", "de", "it", "zh-CN"];
     const MAX_RECENT = 4;
     const RECENT_STORAGE_KEY = "dn-recent-languages";
@@ -30,7 +29,6 @@ sap.ui.define([
         try {
             localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(codes));
         } catch (e) {
-            // Storage blocked: the chips still update for this page view
         }
     }
     const LABEL_TYPES = { general: "labelTypeGeneral", food: "labelTypeFood", cosmetic: "labelTypeCosmetic" };
@@ -79,11 +77,8 @@ sap.ui.define([
             });
             this.getView().setModel(model, "view");
 
-            // The last translation, saved with the review
             this._last = null;
 
-            // Recently used target languages: this browser's single translations first, then the latest saved
-            // single translation reviews (mass translation languages are kept separate)
             this._recentLocal = readRecent();
             this._recentSaved = [];
             api.recentSingleLanguages()
@@ -91,30 +86,23 @@ sap.ui.define([
                     this._recentSaved = stored;
                     this._update();
                 })
-                .catch(() => { /* chips fall back to this browser's languages and the common ones */ });
-            // Chip names need the language list
+                .catch(() => { });
             this.languagesLoaded().then(() => this._update());
 
-            // Recompute derived state whenever a control writes to the model
             model.attachPropertyChange((event) => {
                 const context = event.getParameter("context");
                 const path = event.getParameter("path");
                 this._onPropertyChange(context ? `${context.getPath()}/${path}` : path);
             });
 
-            // Search the language list by name or code, anywhere in the text
             this.byId("languageCombo").setFilterFunction((term, item) => {
                 const needle = String(term || "").toLowerCase();
                 return item.getText().toLowerCase().includes(needle) || item.getKey().toLowerCase().includes(needle);
             });
 
-            // Text direction follows the text (Arabic, Hebrew), and the translation carries its language
-            // so the browser picks the right glyphs (Japanese vs Chinese)
             this._addDomAttributes("sourceText", () => ({ dir: "auto" }));
             this._addDomAttributes("translatedText", () => ({ dir: "auto", lang: this._translatedLang || null }));
 
-            // Side by side, the source row matches the height of the chip row (which may wrap),
-            // so both text boxes start at the same line
             this._chipRowObserver = new ResizeObserver(() => this._alignChipRows());
             this.byId("targetChipRow").addEventDelegate({
                 onAfterRendering: () => {
@@ -124,11 +112,9 @@ sap.ui.define([
                 }
             });
 
-            // Ctrl/Cmd + Enter translates, Ctrl/Cmd + Shift + C copies
             this._onKeyDown = this._handleKeyDown.bind(this);
             document.addEventListener("keydown", this._onKeyDown);
 
-            // Warn before leaving only if a review was filled in but not saved
             this._onBeforeUnload = (event) => {
                 if (this._hasUnsavedReview()) {
                     event.preventDefault();
@@ -137,7 +123,6 @@ sap.ui.define([
             };
             window.addEventListener("beforeunload", this._onBeforeUnload);
 
-            // Keyboard shortcuts apply only while this page is shown
             this._active = true;
             this.getRouter().attachRouteMatched((event) => {
                 this._active = event.getParameter("name") === "translate";
@@ -152,10 +137,6 @@ sap.ui.define([
             clearTimeout(this._copyTimer);
             this._chipRowObserver.disconnect();
         },
-
-        // -------------------------------------------------------------------
-        // Translation
-        // -------------------------------------------------------------------
 
         async onTranslate() {
             const model = this.getViewModel();
@@ -180,7 +161,7 @@ sap.ui.define([
             model.setProperty("/busy", true);
             model.setProperty("/terminologyNote", "");
             this._update();
-            const startedAt = performance.now(); // round trip shown under the translation
+            const startedAt = performance.now();
 
             try {
                 const result = await api.translate(sourceText, targetLanguage);
@@ -232,7 +213,6 @@ sap.ui.define([
             }
         },
 
-        /** Show a translation (new or from Recent) in the target pane and open the review tab */
         _showResult({ translatedText, sourceCode, targetCode, terminology, labelType }) {
             const model = this.getViewModel();
             model.setProperty("/translatedText", translatedText);
@@ -245,21 +225,15 @@ sap.ui.define([
         onChipPress(event) {
             const chip = event.getSource().getBindingContext("view").getObject();
             this.getViewModel().setProperty("/targetLanguage", chip.code);
-            // Pressing the selected chip again keeps it selected
             event.getSource().setPressed(true);
             this._update();
         },
 
-        /** Move a language to the front of this browser's recently used languages */
         _rememberLanguage(code) {
             this._recentLocal = [code, ...this._recentLocal.filter((item) => item !== code)].slice(0, 10);
             saveRecent(this._recentLocal);
         },
 
-        /**
-         * Code of a target language in the language list: an exact code, the base code (Google may list
-         * Chinese (Simplified) as 'zh'), or a stored test result value 'code-Name' such as 'zh-CN-Chinese (Simplified)'
-         */
         _resolveLanguage(value) {
             const languages = this.getLanguages();
             if (!value || !languages.length) return null;
@@ -282,7 +256,6 @@ sap.ui.define([
             if (sideBySide) source.style.minHeight = `${target.getBoundingClientRect().height}px`;
         },
 
-        /** Chips: the selected language if it has no chip yet, recently used languages, then the common ones */
         _updateChips() {
             const model = this.getViewModel();
             const target = model.getProperty("/targetLanguage");
@@ -294,7 +267,6 @@ sap.ui.define([
             const selected = this._resolveLanguage(target);
             if (selected && !codes.includes(selected)) codes.unshift(selected);
 
-            // Rebuild only when something changed, so typing does not re-render the chips
             const key = `${target}|${codes.join()}|${recent.join()}`;
             if (key === this._chipsKey) return;
             this._chipsKey = key;
@@ -317,13 +289,11 @@ sap.ui.define([
             try {
                 await navigator.clipboard.writeText(value);
                 MessageToast.show(this.text("copied"));
-                // The copy icon turns into a check for a moment
                 const model = this.getViewModel();
                 model.setProperty("/copyIcon", "sap-icon://accept");
                 clearTimeout(this._copyTimer);
                 this._copyTimer = setTimeout(() => model.setProperty("/copyIcon", "sap-icon://copy"), 2000);
             } catch (error) {
-                // No clipboard access (older browser or insecure context): select the text instead
                 const textarea = this.byId("translatedText").getFocusDomRef();
                 if (textarea) {
                     textarea.focus();
@@ -363,14 +333,9 @@ sap.ui.define([
             MessageToast.show(this.text("cleared"));
         },
 
-        // -------------------------------------------------------------------
-        // Review
-        // -------------------------------------------------------------------
-
         onOutcomeSelect() {
             const model = this.getViewModel();
             const isFailure = model.getProperty("/review/outcomeIndex") === FAILURE_INDEX;
-            // A failed translation scores 0; any other outcome needs a score
             model.setProperty("/review/accuracy", isFailure ? "0" : "");
             model.setProperty("/review/outcomeState", "None");
             model.setProperty("/review/accuracyState", "None");
@@ -429,7 +394,6 @@ sap.ui.define([
             try {
                 await api.saveTestResult(record);
                 model.setProperty("/sessionTests", model.getProperty("/sessionTests") + 1);
-                // Keep "Tested by" for the next review
                 model.setProperty("/review", emptyReview(review.testedBy));
                 MessageToast.show(this.text("resultSaved"));
             } catch (error) {
@@ -440,22 +404,17 @@ sap.ui.define([
             }
         },
 
-        // -------------------------------------------------------------------
-        // Recent translations (this browser tab only, kept in memory)
-        // -------------------------------------------------------------------
-
         _addToHistory(entry) {
             const model = this.getViewModel();
             model.setProperty("/history", [entry, ...model.getProperty("/history")].slice(0, HISTORY_SIZE));
         },
 
-        /** Load a recent translation back into the panes so it can be copied or reviewed */
         onHistoryPress(event) {
             const entry = event.getSource().getBindingContext("view").getObject();
             const model = this.getViewModel();
             model.setProperty("/sourceText", entry.sourceText);
             model.setProperty("/targetLanguage", entry.targetCode);
-            model.setProperty("/meta", ""); // the timing belongs to the original run
+            model.setProperty("/meta", "");
             this._last = { ...entry.result };
             this._showResult(entry);
             this._update();
@@ -464,14 +423,9 @@ sap.ui.define([
             if (scroller) scroller.scrollTo(0, 0, 300);
         },
 
-        // -------------------------------------------------------------------
-        // Derived state
-        // -------------------------------------------------------------------
-
         _onPropertyChange(path) {
             const model = this.getViewModel();
             if (path.startsWith("/chips/")) {
-                // A language chip was pressed: handled by onChipPress
                 return;
             }
             if (path === "/review/testedBy") model.setProperty("/review/testedByState", "None");
@@ -514,7 +468,6 @@ sap.ui.define([
             model.setProperty("/sessionText", this.text("sessionStats", [data.sessionTranslations, data.sessionTests]));
         },
 
-        /** Label type and the official wording and protected terms the server applied ("" for none) */
         _terminologyNote(terminology, labelType) {
             const parts = [];
             if (LABEL_TYPES[labelType]) {
@@ -533,7 +486,6 @@ sap.ui.define([
             return parts.join(" · ");
         },
 
-        /** Language as stored with a test result: 'code-Name' */
         _displayName(code) {
             if (!code || code === "auto") return "auto-Auto Detected";
             const language = this.getLanguages().find((lang) => lang.code === code);
@@ -561,7 +513,6 @@ sap.ui.define([
             this._applyDomAttributes("translatedText");
         },
 
-        /** Keep extra attributes on a TextArea's <textarea> across re-renders */
         _addDomAttributes(id, getAttributes) {
             this._domAttributes = this._domAttributes || {};
             this._domAttributes[id] = getAttributes;

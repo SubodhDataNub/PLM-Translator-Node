@@ -1,6 +1,5 @@
 using TranslatorService from './translator-service';
 
-// Fiori elements preview of the test results (index page → TestResults → Fiori preview)
 annotate TranslatorService.TestResults with @(
   UI.HeaderInfo          : {
     TypeName       : 'Test Result',

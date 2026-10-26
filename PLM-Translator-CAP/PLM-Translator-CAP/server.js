@@ -1,9 +1,3 @@
-/**
- * Custom CAP server for DN Translator.
- * - creates the SQLite database file and its tables on first start
- * - opens the SAPUI5 app (app/translator/webapp) at / and keeps the old page URLs working
- * - allows long-running mass translation requests
- */
 'use strict';
 
 const fs = require('fs');
@@ -12,10 +6,8 @@ const cds = require('@sap/cds');
 const { translatorService } = require('./srv/lib/translator');
 const { terminology } = require('./srv/lib/terminology');
 
-// Long-running mass translations: allow up to 30 minutes per request
 const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
 
-// The SAPUI5 app and its pages (routes after #/); the old page URLs redirect to them
 const APP = '/translator/webapp/index.html';
 const PAGES = {
     '/': APP,
@@ -26,7 +18,6 @@ const PAGES = {
     '/test-results.html': `${APP}#/test-results`
 };
 
-// The SQLite driver does not create missing folders
 const dbUrl = cds.env.requires.db && cds.env.requires.db.credentials && cds.env.requires.db.credentials.url;
 if (dbUrl && dbUrl !== ':memory:') {
     fs.mkdirSync(path.dirname(path.resolve(cds.root, dbUrl)), { recursive: true });
@@ -38,7 +29,6 @@ cds.on('bootstrap', (app) => {
     }
 });
 
-// Create the tables when the database is new; existing data is never dropped
 cds.on('served', async () => {
     const db = await cds.connect.to('db');
     const table = await db.run(
@@ -65,7 +55,6 @@ cds.on('listening', ({ server, url }) => {
     server.requestTimeout = REQUEST_TIMEOUT_MS;
     console.log(`DN Translator (CAP) running on ${url}`);
     console.log(`Translation provider: ${describeTranslator()}`);
-    // Read the label terminology now rather than on the first translation
     setImmediate(() => terminology.load());
 });
 

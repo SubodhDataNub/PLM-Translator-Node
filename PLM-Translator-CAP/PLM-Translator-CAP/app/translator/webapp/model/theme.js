@@ -1,7 +1,3 @@
-/**
- * Theme choice: system (follows the OS), light (Horizon) or dark (Horizon Dark).
- * The choice is saved in localStorage; index.html applies it before UI5 starts.
- */
 sap.ui.define([
     "sap/ui/core/Theming"
 ], function (Theming) {
@@ -47,7 +43,6 @@ sap.ui.define([
                     localStorage.setItem(STORAGE_KEY, choice);
                 }
             } catch (e) {
-                // Storage blocked: the choice still applies to this page view
             }
             apply();
         }

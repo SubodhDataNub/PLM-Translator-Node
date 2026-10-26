@@ -20,7 +20,6 @@ sap.ui.define([
             deviceModel.setDefaultBindingMode("OneWay");
             this.setModel(deviceModel, "device");
 
-            // Target languages offered by Google: [{code, name}], loaded once for every page
             const languagesModel = new JSONModel([]);
             languagesModel.setSizeLimit(1000);
             this.setModel(languagesModel, "languages");
@@ -35,7 +34,6 @@ sap.ui.define([
             this.getRouter().initialize();
         },
 
-        /** Compact controls on desktop, cozy on touch devices */
         getContentDensityClass: function () {
             return Device.support.touch ? "sapUiSizeCozy" : "sapUiSizeCompact";
         }

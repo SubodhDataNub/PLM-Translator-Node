@@ -11,8 +11,8 @@ sap.ui.define([
 ], function (BaseController, JSONModel, Filter, FilterOperator, BusyDialog, MessageToast, MessageBox, api, text) {
     "use strict";
 
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-    const AUTO_VALIDATE_SIZE = 5 * 1024 * 1024; // larger files are checked as soon as they are chosen
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    const AUTO_VALIDATE_SIZE = 5 * 1024 * 1024;
     const LARGE_FILE_ROWS = 10000;
     const COMMON_LANGUAGES = ["ar", "zh-CN", "da", "nl", "fr", "id", "it", "ja", "pt", "es", "tr"];
     const LABEL_TYPE_NAMES = { food: "food", cosmetic: "cosmetic or detergent", general: "general" };
@@ -36,7 +36,6 @@ sap.ui.define([
                 result: null
             }), "view");
 
-            // Languages with a "selected" flag, bound to the checkbox table
             const languageModel = new JSONModel([]);
             languageModel.setSizeLimit(1000);
             this.getView().setModel(languageModel, "lang");
@@ -47,10 +46,8 @@ sap.ui.define([
             this._file = null;
             this._validation = null;
 
-            // Drop an Excel file anywhere on the Spreadsheet panel
             this.byId("filePanel").addEventDelegate({ onAfterRendering: () => this._attachDropZone() });
 
-            // Leaving the page would stop a running translation
             this._onBeforeUnload = (event) => {
                 if (this.getViewModel().getProperty("/running")) {
                     event.preventDefault();
@@ -65,10 +62,6 @@ sap.ui.define([
             clearTimeout(this._estimateTimer);
             clearTimeout(this._validateTimer);
         },
-
-        // -------------------------------------------------------------------
-        // Step 1: spreadsheet
-        // -------------------------------------------------------------------
 
         onFileChange(event) {
             const files = event.getParameter("files");
@@ -171,10 +164,6 @@ sap.ui.define([
             }
         },
 
-        // -------------------------------------------------------------------
-        // Step 2: languages
-        // -------------------------------------------------------------------
-
         onLanguageSearch(event) {
             const query = (event.getParameter("newValue") ?? event.getParameter("query") ?? "").trim();
             const filters = query
@@ -195,7 +184,6 @@ sap.ui.define([
 
         onSelectCommon() {
             const languages = this.getView().getModel("lang").getData();
-            // Google lists Chinese (Simplified) as 'zh-CN' (or 'zh')
             const hasZhCn = languages.some((lang) => lang.code === "zh-CN");
             const codes = COMMON_LANGUAGES.map((code) => (code === "zh-CN" && !hasZhCn ? "zh" : code));
             this._setSelection((lang) => codes.includes(lang.code));
@@ -225,7 +213,6 @@ sap.ui.define([
             model.setProperty("/selectedState",
                 count === 0 ? "None" : count <= 5 ? "Success" : count <= 15 ? "Information" : "Warning");
 
-            // Wait for the clicks to settle before asking for a new estimate
             clearTimeout(this._estimateTimer);
             this._estimateTimer = setTimeout(() => this._updateEstimate(), 300);
         },
@@ -242,7 +229,6 @@ sap.ui.define([
             }
             try {
                 const estimate = await api.estimateProcessingTime(rows, codes);
-                // Ignore the answer if the selection changed while it was on its way
                 if (this._selectedCodes().join() !== codes.join()) return;
                 model.setProperty("/estimate", {
                     time: text.formatDuration(estimate.estimatedMinutes, estimate.estimatedHours),
@@ -251,13 +237,8 @@ sap.ui.define([
                     recommendation: estimate.recommendation || ""
                 });
             } catch (error) {
-                // The estimate is a convenience: keep the previous one
             }
         },
-
-        // -------------------------------------------------------------------
-        // Step 3: run
-        // -------------------------------------------------------------------
 
         onTestedByChange() {
             this.getViewModel().setProperty("/testedByState", "None");
@@ -331,10 +312,6 @@ sap.ui.define([
                 if (scroller && panel.getDomRef()) scroller.scrollToElement(panel.getDomRef(), 300);
             }, 0);
         },
-
-        // -------------------------------------------------------------------
-        // Downloads and navigation
-        // -------------------------------------------------------------------
 
         async onDownloadResults() {
             if (!this._sessionId) {

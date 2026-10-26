@@ -1,7 +1,3 @@
-/**
- * Mass translation helpers (ported from the Node.js version's massTranslation.js,
- * largeScaleTranslator.js and the Excel parts of routes/api.js).
- */
 'use strict';
 
 const { ExcelJS, readSpreadsheet, cellToString, addRecordsSheet } = require('./excel');
@@ -29,7 +25,6 @@ function findDescriptionColumn(columns, textColumn) {
     return DESCRIPTION_COLUMNS.find((col) => columns.includes(col) && col !== textColumn) || null;
 }
 
-/** Collect all valid texts (with row index and description) from the spreadsheet */
 function collectTexts(table) {
     const textColumn = findTextColumn(table.columns);
     const descriptionColumn = findDescriptionColumn(table.columns, textColumn);
@@ -53,11 +48,6 @@ function observationFor(item, prefix, suffix = '') {
     return `${prefix} - Row ${item.index + 1}${suffix}` + (item.description ? ` - ${item.description}` : '');
 }
 
-// ---------------------------------------------------------------------------
-// Validation and estimates
-// ---------------------------------------------------------------------------
-
-/** Get processing recommendation based on record count and language count */
 function processingRecommendation(recordCount, languageCount = 1) {
     const totalTranslations = recordCount * languageCount;
     const languages = `${languageCount} language${languageCount > 1 ? 's' : ''}`;
@@ -72,7 +62,6 @@ function processingRecommendation(recordCount, languageCount = 1) {
     return `Very large dataset - estimated 8+ hours for ${recordCount} records × ${languages}, consider splitting into smaller files`;
 }
 
-/** Estimate processing time for a number of records (rough: 1000 translations per minute) */
 function estimateProcessingTime(recordCount, languageCount = 1) {
     const estimatedMinutes = (recordCount * languageCount) / 1000;
     return {
@@ -110,7 +99,6 @@ function fileRecommendations(totalRows, fileSizeMb) {
     return recommendations;
 }
 
-/** Validate an Excel file before processing */
 async function validateWorkbook(buffer, languageCount = 1) {
     const table = await readSpreadsheet(buffer);
     if (table.columns.length === 0) {
@@ -128,21 +116,12 @@ async function validateWorkbook(buffer, languageCount = 1) {
     };
 }
 
-// ---------------------------------------------------------------------------
-// Result workbooks
-// ---------------------------------------------------------------------------
-
 const MASS_OBSERVATION_ROW = /^Mass translation(?: FAILED)? - Row (\d+)/;
 
 function isFailureOutcome(outcome) {
     return ['failure', 'failed'].includes(String(outcome || '').toLowerCase());
 }
 
-/**
- * Recover the original spreadsheet description and the error message from a mass translation record.
- * Observations look like 'Mass translation - Row 3 - <description>' or
- * 'Mass translation FAILED - Row 3 - Error: <error> - <description>' (translatedText is 'ERROR: <error>').
- */
 function parseMassObservation(record) {
     const observation = record.observation || '';
     if (!isFailureOutcome(record.outcome)) {
@@ -162,18 +141,14 @@ function parseMassObservation(record) {
     return { description, error: errorMessage || observation || 'Translation failed' };
 }
 
-/**
- * Build the results sheet for a mass translation session: one row per source text,
- * with one column per target language (in the order the languages were translated).
- */
 function buildSessionResultSheet(records, languagesList) {
     const languageMap = {};
     for (const lang of languagesList) {
         if (lang.key) languageMap[lang.key] = lang.text;
     }
 
-    const languageHeaders = new Map(); // language code -> column header
-    const groups = new Map();          // source row -> { row, sourceText, description, translations, errors }
+    const languageHeaders = new Map();
+    const groups = new Map();
 
     records.forEach((record, i) => {
         const match = (record.observation || '').match(MASS_OBSERVATION_ROW);
@@ -214,7 +189,6 @@ function buildSessionResultSheet(records, languagesList) {
             status = Object.keys(group.translations).length > 0 ? 'Partial' : 'Failed';
         }
 
-        // Missing values are left as truly blank cells (null), not empty strings
         const record = { 'Row': group.row, 'Source Text': group.sourceText, 'Status': status };
         if (hasDescription) record['Description'] = group.description || null;
         for (const [code, header] of languageHeaders) {
@@ -227,14 +201,11 @@ function buildSessionResultSheet(records, languagesList) {
     return { columns, records: sheetRecords, frozenColumns: fixedColumns.length };
 }
 
-/** Workbook with the results of one mass translation session */
 function sessionResultsWorkbook(records, languagesList) {
     const sheet = buildSessionResultSheet(records, languagesList);
     const workbook = new ExcelJS.Workbook();
     const worksheet = addRecordsSheet(workbook, 'Translation Results', sheet.records, { columns: sheet.columns });
 
-    // Keep the header and source columns visible while scrolling across languages,
-    // and wrap long texts so translations side by side stay readable
     worksheet.views = [{ state: 'frozen', xSplit: sheet.frozenColumns, ySplit: 1 }];
     worksheet.eachRow((row, rowNumber) => {
         if (rowNumber > 1) row.alignment = { wrapText: true, vertical: 'top' };
@@ -242,7 +213,6 @@ function sessionResultsWorkbook(records, languagesList) {
     return workbook;
 }
 
-/** Mass translation template with sample rows and an instructions sheet */
 function templateWorkbook() {
     const workbook = new ExcelJS.Workbook();
 

@@ -1,13 +1,8 @@
-/**
- * Client for the actions and functions of the CAP OData V4 service (srv/translator-service.cds).
- * The test results table binds to the OData model directly; everything else goes through here.
- */
 sap.ui.define([], function () {
     "use strict";
 
     const BASE = "/odata/v4/translator";
 
-    /** $orderby for each sort option of the test results page */
     const SORT_ORDERS = {
         id_desc: "ID desc",
         id_asc: "ID asc",
@@ -17,7 +12,6 @@ sap.ui.define([], function () {
         accuracy_asc: "accuracy asc,ID asc"
     };
 
-    /** Send a request and return the parsed JSON; OData errors become Error(message) */
     async function request(path, { method = "GET", body } = {}) {
         const headers = { Accept: "application/json" };
         if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -34,7 +28,6 @@ sap.ui.define([], function () {
         try {
             data = await response.json();
         } catch (e) {
-            // Empty or non-JSON body
         }
         if (!response.ok) {
             const message = (data && data.error && data.error.message) || `${response.status} ${response.statusText}`;
@@ -45,12 +38,10 @@ sap.ui.define([], function () {
         return data;
     }
 
-    /** OData string literal: quotes doubled */
     function literal(value) {
         return `'${String(value ?? "").replace(/'/g, "''")}'`;
     }
 
-    /** URL for a function call with string parameters, e.g. resultStatistics(outcome='x',...) */
     function functionPath(name, params = {}) {
         const args = Object.entries(params)
             .map(([key, value]) => `${key}=${encodeURIComponent(literal(value))}`)
@@ -63,7 +54,6 @@ sap.ui.define([], function () {
         return data;
     }
 
-    /** OData $filter for the test results filters (same semantics as the server-side statistics) */
     function resultFilter({ outcome, language, search } = {}) {
         const conditions = [];
         outcome = String(outcome || "").trim();
@@ -85,7 +75,6 @@ sap.ui.define([], function () {
         return conditions.join(" and ");
     }
 
-    /** Read a File as base64 (without the data: URL prefix) */
     function fileToBase64(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -95,7 +84,6 @@ sap.ui.define([], function () {
         });
     }
 
-    /** Save an ExcelFile result ({fileName, mimeType, content: base64}) as a download */
     function saveFile(file, fallbackName) {
         const bytes = Uint8Array.from(atob(file.content), (c) => c.charCodeAt(0));
         const blob = new Blob([bytes], { type: file.mimeType || "application/octet-stream" });
@@ -113,7 +101,6 @@ sap.ui.define([], function () {
         SORT_ORDERS,
         resultFilter,
 
-        /** Target languages as [{code, name}] */
         async languages() {
             const data = await request("/languages()");
             return data.value || [];
@@ -125,8 +112,6 @@ sap.ui.define([], function () {
             return stripContext(await request("/translate", { method: "POST", body }));
         },
 
-        // --- Test results ------------------------------------------------------
-
         async saveTestResult(record) {
             return stripContext(await request("/TestResults", { method: "POST", body: record }));
         },
@@ -137,10 +122,6 @@ sap.ui.define([], function () {
             })));
         },
 
-        /**
-         * Target languages of the latest saved single translation reviews, newest first, without repeats
-         * ('code-Name' values). Mass translation rows (session 'mass_translation_...') are left out.
-         */
         async recentSingleLanguages(top = 200) {
             const filter = encodeURIComponent("not startswith(sessionId,'mass_translation_')");
             const data = await request(
@@ -159,8 +140,6 @@ sap.ui.define([], function () {
                 outcome: filters.outcome, language: filters.language, search: filters.search
             })), "test_results.xlsx");
         },
-
-        // --- Mass translation --------------------------------------------------
 
         async validateFile(file, targetLanguages = []) {
             const content = await fileToBase64(file);

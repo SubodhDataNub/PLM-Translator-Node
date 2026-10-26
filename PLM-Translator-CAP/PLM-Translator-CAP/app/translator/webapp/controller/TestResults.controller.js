@@ -32,7 +32,6 @@ sap.ui.define([
             this._template = this.byId("rowTemplate");
             this.byId("resultsTable").setGrowingThreshold(PAGE_SIZE);
 
-            // Filters and sort live in the URL (#/test-results?q=...&outcome=...), so a view can be shared
             this.getRouter().getRoute("testResults").attachPatternMatched(this._onRouteMatched, this);
         },
 
@@ -40,7 +39,6 @@ sap.ui.define([
             const query = event.getParameter("arguments")["?query"] || {};
             const model = this.getViewModel();
             const language = String(query.language || "").trim();
-            // The language must be in the list before it is selected, or the Select falls back to "All"
             this._setLanguageOptions(model.getProperty("/languages").slice(1).map((item) => item.key), language);
             model.setProperty("/search", String(query.q || "").trim());
             model.setProperty("/outcome", String(query.outcome || "").trim());
@@ -50,10 +48,6 @@ sap.ui.define([
             this._loadLanguages();
             this._load();
         },
-
-        // -------------------------------------------------------------------
-        // Filters
-        // -------------------------------------------------------------------
 
         onSearch() {
             this._navigate();
@@ -77,7 +71,6 @@ sap.ui.define([
             this._load();
         },
 
-        /** Write the filters to the URL; the route handler then loads the results */
         _navigate() {
             const { search, outcome, language, sort } = this.getViewModel().getData();
             const query = {};
@@ -93,11 +86,6 @@ sap.ui.define([
             return { outcome, language, search: search.trim() };
         },
 
-        // -------------------------------------------------------------------
-        // Loading
-        // -------------------------------------------------------------------
-
-        /** Bind the table to the OData service with the current filters and sort */
         _load() {
             const model = this.getViewModel();
             const filters = this._filters();
@@ -154,16 +142,13 @@ sap.ui.define([
             });
         },
 
-        /** Distinct stored target languages for the language filter */
         async _loadLanguages() {
             try {
                 this._setLanguageOptions(await api.resultLanguages(), this.getViewModel().getProperty("/language"));
             } catch (error) {
-                // The filter still works with the language from the URL
             }
         },
 
-        /** "All languages" plus the stored languages; a language from the URL stays selectable even if unused */
         _setLanguageOptions(languages, current) {
             const list = languages.slice();
             if (current && !list.includes(current)) list.unshift(current);
@@ -172,10 +157,6 @@ sap.ui.define([
                 ...list.map((lang) => ({ key: lang, text: lang }))
             ]);
         },
-
-        // -------------------------------------------------------------------
-        // Actions
-        // -------------------------------------------------------------------
 
         async onExport() {
             const model = this.getViewModel();

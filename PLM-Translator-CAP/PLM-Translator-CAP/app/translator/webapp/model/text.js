@@ -1,11 +1,7 @@
-/**
- * Text helpers: character and word counts that work for every script, and file sizes.
- */
 sap.ui.define([], function () {
     "use strict";
 
     return {
-        /** Count user-perceived characters, so combining marks (Devanagari, Arabic) count once */
         countCharacters(text) {
             text = String(text || "");
             if (window.Intl && Intl.Segmenter) {
@@ -14,7 +10,6 @@ sap.ui.define([], function () {
             return Array.from(text).length;
         },
 
-        /** Count words; Intl.Segmenter also handles scripts written without spaces (Chinese, Japanese, Thai) */
         countWords(text, language) {
             text = String(text || "");
             if (window.Intl && Intl.Segmenter) {
@@ -37,7 +32,6 @@ sap.ui.define([], function () {
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
         },
 
-        /** Estimated processing time as "2.5 hours", "12 minutes" or "40 seconds" */
         formatDuration(minutes, hours) {
             if (hours >= 1) return `${hours.toFixed(1)} hours`;
             if (minutes >= 1) return `${Math.round(minutes)} minutes`;

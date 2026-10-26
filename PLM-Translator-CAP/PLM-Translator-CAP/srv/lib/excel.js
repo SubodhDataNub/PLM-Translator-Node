@@ -1,7 +1,3 @@
-/**
- * Excel helpers (replacement for pandas + openpyxl).
- * Reads uploaded workbooks into a simple table and builds downloadable .xlsx files.
- */
 'use strict';
 
 const ExcelJS = require('exceljs');
@@ -10,12 +6,10 @@ const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 
 class ExcelReadError extends Error {}
 
-/** Format a Date like pandas' str(Timestamp): 'YYYY-MM-DD HH:MM:SS' */
 function formatDate(date) {
     return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
 }
 
-/** Convert an ExcelJS cell value into a plain JS value ('' for empty cells, like fillna('')) */
 function cellValue(value) {
     if (value === null || value === undefined) return '';
     if (value instanceof Date) return value;
@@ -36,7 +30,6 @@ function cellValue(value) {
     return String(value);
 }
 
-/** Convert a cell value to text the way Python's str() did */
 function cellToString(value) {
     if (value === null || value === undefined) return '';
     if (value instanceof Date) return formatDate(value);
@@ -48,14 +41,6 @@ function isEmptyValue(value) {
     return value === '' || value === null || value === undefined;
 }
 
-/**
- * Read the first worksheet of an .xlsx file into a table.
- * The first row is used as the header (like pandas.read_excel).
- *
- * @param {Buffer} buffer
- * @param {{maxRows?: number}} options - maxRows limits how many data rows are returned
- * @returns {Promise<{columns: string[], rows: object[], totalRows: number}>}
- */
 async function readSpreadsheet(buffer, { maxRows = Infinity } = {}) {
     const workbook = new ExcelJS.Workbook();
     try {
@@ -72,7 +57,6 @@ async function readSpreadsheet(buffer, { maxRows = Infinity } = {}) {
         return { columns: [], rows: [], totalRows: 0 };
     }
 
-    // Find the last row/column that contain data (trailing empty rows/columns are ignored)
     let lastRow = 1;
     let columnCount = 0;
     worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
@@ -84,7 +68,6 @@ async function readSpreadsheet(buffer, { maxRows = Infinity } = {}) {
         });
     });
 
-    // Build column names from the header row (pandas-style naming for blanks/duplicates)
     const headerRow = worksheet.getRow(1);
     const columns = [];
     const seen = new Map();
@@ -121,7 +104,6 @@ function displayLength(value) {
     return cellToString(value).length;
 }
 
-/** Auto-adjust column widths: min(max content length + 2, 50) */
 function autoFitColumns(worksheet) {
     worksheet.columns.forEach((column) => {
         let maxLength = 0;
@@ -132,10 +114,6 @@ function autoFitColumns(worksheet) {
     });
 }
 
-/**
- * Add a sheet built from a list of records (like DataFrame.to_excel(index=False)).
- * Columns are the union of record keys, in order of first appearance.
- */
 function addRecordsSheet(workbook, sheetName, records, { columns = null } = {}) {
     const worksheet = workbook.addWorksheet(sheetName);
 
@@ -163,7 +141,6 @@ async function workbookToBuffer(workbook) {
     return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
-/** Send a workbook as an .xlsx download */
 async function sendWorkbook(res, workbook, filename) {
     const buffer = await workbookToBuffer(workbook);
     res.attachment(filename);

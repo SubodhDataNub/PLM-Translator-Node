@@ -33,7 +33,6 @@
         <f:header>
             <f:DynamicPageHeader pinnable="true">
                 <VBox>
-                    <!-- Statistics for the current filters -->
                     <FlexBox wrap="Wrap" class="dnKpiRow">
                         <VBox class="dnKpi">
                             <Label text="{view>/totalLabel}" />
@@ -57,7 +56,6 @@
                         </VBox>
                     </FlexBox>
 
-                    <!-- Filters: applied on the server -->
                     <FlexBox wrap="Wrap" alignItems="End" class="dnFilterBar sapUiSmallMarginTop">
                         <VBox class="dnFilterField dnFilterSearch">
                             <Label text="{i18n>search}" labelFor="searchField" />
@@ -170,7 +168,6 @@
             </Table>
         </f:content>
 
-        <!-- Row template: the table is bound in the controller, with the current filters -->
         <f:dependents>
             <ColumnListItem
                 id="rowTemplate"

@@ -1,12 +1,3 @@
-/**
- * Google Cloud Translation service module.
- * Handles Google Cloud Translation API calls and language operations.
- *
- * Supports both editions of the API:
- *  - Basic (v2):    authenticated with an API key (GOOGLE_TRANSLATE_API_KEY)
- *  - Advanced (v3): authenticated with a service account / Application Default Credentials
- *                   (GOOGLE_CLOUD_PROJECT_ID + GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_CREDENTIALS_JSON)
- */
 'use strict';
 
 const { GoogleTranslateConfig } = require('./config');
@@ -14,13 +5,10 @@ const { terminology, normalizeLabelType } = require('./terminology');
 
 const V2_BASE_URL = 'https://translation.googleapis.com/language/translate/v2';
 
-// Google limits the number of text segments per request (v2: 128, v3: 1024)
 const MAX_SEGMENTS_PER_REQUEST = { basic: 128, advanced: 1024 };
 
-// Retry a failed language list fetch at most once a minute
 const LANGUAGES_RETRY_INTERVAL_MS = 60 * 1000;
 
-// Google lists some languages twice: under a legacy/alias code and under the current code
 const LANGUAGE_ALIASES = { zh: 'zh-CN', iw: 'he', jw: 'jv', tl: 'fil' };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -36,14 +24,13 @@ class TranslationError extends Error {
     }
 }
 
-/** Service class to handle Google Cloud Translation API calls */
 class TranslatorService {
     constructor(cfg = GoogleTranslateConfig.load()) {
         this.config = cfg;
         this.languagesCache = null;
         this.languagesFailedAt = 0;
         this._v3Client = null;
-        this.modelUnsupportedTargets = new Set(); // target languages the configured model rejected
+        this.modelUnsupportedTargets = new Set();
     }
 
     isConfigured() {
@@ -54,11 +41,6 @@ class TranslatorService {
         return this.config.edition;
     }
 
-    // ------------------------------------------------------------------
-    // Supported languages
-    // ------------------------------------------------------------------
-
-    /** Get list of supported languages from Google Cloud Translation API */
     async getSupportedLanguages() {
         if (this.languagesCache) {
             return this.languagesCache;
@@ -77,7 +59,6 @@ class TranslatorService {
                 throw new Error('Invalid API response structure');
             }
 
-            // Convert to list format for frontend (without duplicate alias codes), sorted by name
             const codes = new Set(apiLanguages.map((lang) => lang.code));
             const languages = apiLanguages
                 .filter(({ code }) => !(LANGUAGE_ALIASES[code] && codes.has(LANGUAGE_ALIASES[code])))
@@ -90,7 +71,6 @@ class TranslatorService {
         } catch (e) {
             console.error(`Failed to load supported languages from Google: ${e.message}`);
             this.languagesFailedAt = Date.now();
-            // Return fallback languages
             return this._getFallbackLanguages();
         }
     }
@@ -118,7 +98,6 @@ class TranslatorService {
             .map((lang) => ({ code: lang.languageCode, name: lang.displayName }));
     }
 
-    /** Fallback languages list when API is unavailable */
     _getFallbackLanguages() {
         return [
             { key: '', text: 'Select Target Language' },
@@ -146,15 +125,6 @@ class TranslatorService {
         ];
     }
 
-    // ------------------------------------------------------------------
-    // Translation
-    // ------------------------------------------------------------------
-
-    /**
-     * Translate text using Google Cloud Translation API.
-     * @param {object} [options]
-     * @param {string} [options.labelType] - Which label terminology to apply (see services/terminology.js)
-     */
     async translateText(text, targetLanguage, { labelType } = {}) {
         if (!this.isConfigured()) {
             return {
@@ -188,20 +158,6 @@ class TranslatorService {
         }
     }
 
-    /**
-     * Translate multiple texts in batches using Google Cloud Translation API.
-     *
-     * Each API request is limited both by number of texts (maxBatchSize) and by total
-     * characters (TRANSLATE_MAX_CHARS_PER_REQUEST, Google recommends <= 5,000 characters).
-     * Rate-limit responses are retried with exponential backoff.
-     *
-     * @param {string[]} texts - List of strings to translate
-     * @param {string} targetLanguage - Target language code
-     * @param {number} maxBatchSize - Maximum texts per API call
-     * @param {object} [options]
-     * @param {string} [options.labelType] - Which label terminology to apply (see services/terminology.js)
-     * @returns {Promise<object[]>} List of translation results (same order as texts)
-     */
     async translateBatch(texts, targetLanguage, maxBatchSize = 50, { labelType } = {}) {
         if (!this.isConfigured()) {
             return texts.map((text) => ({
@@ -228,7 +184,6 @@ class TranslatorService {
             const charCount = batch.reduce((sum, text) => sum + text.length, 0);
             console.log(`Batch ${batchNum}/${batches.length}: ${batch.length} texts, ${charCount} characters`);
 
-            // Wait BEFORE sending (except for first batch) to respect rate limits
             if (b > 0 && requestDelayMs > 0) {
                 await sleep(requestDelayMs);
             }
@@ -263,7 +218,6 @@ class TranslatorService {
                 } catch (e) {
                     if (e.retryable && retryCount + 1 < maxRetries) {
                         retryCount += 1;
-                        // Exponential backoff: 5, 10, 20, 40 seconds...
                         const waitTime = 5 * (2 ** (retryCount - 1));
                         const reason = e.rateLimited ? 'Rate limit hit!' : `Transient error (${e.message}).`;
                         console.log(`${reason} Retry ${retryCount}/${maxRetries} after ${waitTime} seconds...`);
@@ -293,7 +247,6 @@ class TranslatorService {
         return allResults;
     }
 
-    /** Split texts into request-sized batches by count and by total characters */
     _makeBatches(texts, maxBatchSize) {
         const maxItems = Math.max(1, Math.min(maxBatchSize, MAX_SEGMENTS_PER_REQUEST[this.edition] || 128));
         const maxChars = Math.max(1, this.config.maxCharsPerRequest);
@@ -315,16 +268,7 @@ class TranslatorService {
         return batches;
     }
 
-    /**
-     * Translate texts with label terminology applied.
-     *
-     * Official wording and protected terms are swapped for placeholders before the request and put
-     * back afterwards. Texts that are only official wording or codes never reach Google. If the
-     * translator damages a placeholder, that text is translated again without terminology.
-     * @returns {Promise<{translatedText: string, detectedLanguage: string|null, terminology?: object}[]>}
-     */
     async _requestTranslations(texts, targetLanguage, timeoutMs, { labelType } = {}) {
-        // 'auto' becomes general, food or cosmetic per text
         const labelTypes = texts.map((text) => terminology.resolveLabelType(text, labelType));
         const prepared = texts.map((text, idx) => terminology.protect(text, targetLanguage, labelTypes[idx]));
         const results = new Array(texts.length);
@@ -375,15 +319,10 @@ class TranslatorService {
         return this._withLabelTypes(results, labelTypes);
     }
 
-    /** Record on each result which label type was applied */
     _withLabelTypes(results, labelTypes) {
         return results.map((result, idx) => result && { ...result, labelType: labelTypes[idx] });
     }
 
-    /**
-     * Send one translate request.
-     * @returns {Promise<{translatedText: string, detectedLanguage: string|null}[]>}
-     */
     async _sendTranslations(texts, targetLanguage, timeoutMs) {
         return this.edition === 'advanced'
             ? this._translateV3(texts, targetLanguage, timeoutMs)
@@ -392,7 +331,6 @@ class TranslatorService {
 
     async _translateV2(texts, targetLanguage, timeoutMs) {
         const body = { q: texts, target: targetLanguage, format: 'text' };
-        // Basic (v2) only knows the 'nmt' and 'base' models; Advanced model names are ignored here
         if (/^(nmt|base)$/.test(this.config.model || '')) body.model = this.config.model;
 
         let response;
@@ -426,7 +364,6 @@ class TranslatorService {
         try {
             data = await response.json();
         } catch (e) {
-            // Non-JSON response body
         }
 
         if (!response.ok) {
@@ -449,7 +386,6 @@ class TranslatorService {
             mimeType: 'text/plain',
             targetLanguageCode: targetLanguage
         };
-        // Use the configured model unless it is known not to support this target language
         const useModel = Boolean(this.config.model) && !this.modelUnsupportedTargets.has(targetLanguage);
         if (useModel) request.model = this._v3ModelPath();
 
@@ -460,14 +396,11 @@ class TranslatorService {
                 detectedLanguage: t.detectedLanguageCode || null
             }));
         } catch (e) {
-            // Models such as the Translation LLM support fewer languages than the standard model:
-            // fall back to the standard model for those languages instead of failing
             if (useModel && e.code === 3 && /unsupported language pair/i.test(e.details || e.message || '')) {
                 console.log(`Model ${this.config.model} does not support '${targetLanguage}' - using the standard model instead`);
                 this.modelUnsupportedTargets.add(targetLanguage);
                 return this._translateV3(texts, targetLanguage, timeoutMs);
             }
-            // gRPC status codes: 4 DEADLINE_EXCEEDED, 8 RESOURCE_EXHAUSTED, 14 UNAVAILABLE
             if (e.code === 4) {
                 throw new TranslationError('Request timed out', { timeout: true });
             }
@@ -501,7 +434,6 @@ class TranslatorService {
     }
 }
 
-// Global translator service instance
 const translatorService = new TranslatorService();
 
 module.exports = { TranslatorService, TranslationError, translatorService };
