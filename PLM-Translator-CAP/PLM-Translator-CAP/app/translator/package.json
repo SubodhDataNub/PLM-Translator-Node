@@ -1,0 +1,31 @@
+{
+  "name": "dn.translator",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build_old": "ui5 build preload --clean-dest",
+    "start": "fiori run --open \"test/flpSandbox.html?sap-ui-xx-viewCache=false#translator-display\"",
+    "start-local": "fiori run --config ./ui5-local.yaml --open \"test/flpSandboxMockServer.html?sap-ui-xx-viewCache=false#translator-display\"",
+    "start-noflp": "fiori run --open \"index.html?sap-ui-xx-viewCache=false\"",
+    "start-variants-management": "fiori run --open \"preview.html?sap-ui-xx-viewCache=false&fiori-tools-rta-mode=true&sap-ui-rta-skip-flex-validation=true#preview-app\"",
+    "build": "ui5 build -a --clean-dest --include-task=generateCachebusterInfo",
+    "deploy": "fiori verify",
+    "deploy-config": "fiori add deploy-config",
+    "start-mock": "fiori run --config ./ui5-mock.yaml --open \"test/flpSandbox.html?sap-ui-xx-viewCache=false#translator-display\""
+  },
+  "devDependencies": {
+    "ui5-task-zipper": "^3.0.0",
+    "@ui5/cli": "^4.0.0",
+    "@sap/ux-ui5-tooling": "1",
+    "rimraf": "6.0.1",
+    "@sap-ux/ui5-middleware-fe-mockserver": "2"
+  },
+  "sapuxLayer": "CUSTOMER_BASE",
+  "description": "",
+  "keywords": [
+    "ui5",
+    "openui5",
+    "sapui5"
+  ],
+  "main": "webapp/index.html"
+}

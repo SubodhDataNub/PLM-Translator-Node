@@ -1,0 +1,38 @@
+{
+  "xsappname": "na-fddd8358-7642-4f2e-ae50-c89cc0f43699",
+  "tenant-mode": "shared",
+  "scopes": [
+    {
+      "name": "$XSAPPNAME.User",
+      "description": "Translate, save results and see own results"
+    },
+    {
+      "name": "$XSAPPNAME.Admin",
+      "description": "See all users' results and user activity"
+    }
+  ],
+  "role-templates": [
+    {
+      "name": "User",
+      "description": "PLM Translator user",
+      "scope-references": ["$XSAPPNAME.User"]
+    },
+    {
+      "name": "Admin",
+      "description": "PLM Translator administrator",
+      "scope-references": ["$XSAPPNAME.User", "$XSAPPNAME.Admin"]
+    }
+  ],
+  "role-collections": [
+    {
+      "name": "PLM_Translator_User",
+      "description": "PLM Translator: translate and see own results",
+      "role-template-references": ["$XSAPPNAME.User"]
+    },
+    {
+      "name": "PLM_Translator_Admin",
+      "description": "PLM Translator: everything users can do, plus all results and user activity",
+      "role-template-references": ["$XSAPPNAME.Admin"]
+    }
+  ]
+}

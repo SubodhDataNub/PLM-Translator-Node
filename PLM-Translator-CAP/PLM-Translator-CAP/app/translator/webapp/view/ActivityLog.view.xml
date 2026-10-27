@@ -1,0 +1,127 @@
+<mvc:View
+    controllerName="dn.translator.controller.ActivityLog"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.f"
+    xmlns="sap.m"
+    height="100%">
+
+    <f:DynamicPage id="activityPage" toggleHeaderOnTitleClick="true">
+        <f:title>
+            <f:DynamicPageTitle>
+                <f:heading>
+                    <Title text="{i18n>activityTitle}" level="H2" wrapping="true" />
+                </f:heading>
+                <f:expandedContent>
+                    <Text text="{i18n>activityLede}" />
+                </f:expandedContent>
+                <f:actions>
+                    <Button text="{i18n>refresh}" icon="sap-icon://refresh" press=".onRefresh" />
+                </f:actions>
+            </f:DynamicPageTitle>
+        </f:title>
+
+        <f:header>
+            <f:DynamicPageHeader pinnable="true">
+                <FlexBox wrap="Wrap" alignItems="End" class="dnFilterBar">
+                    <VBox class="dnFilterField dnFilterSearch">
+                        <Label text="{i18n>search}" labelFor="activitySearch" />
+                        <SearchField
+                            id="activitySearch"
+                            width="100%"
+                            value="{view>/search}"
+                            placeholder="{i18n>activitySearchPlaceholder}"
+                            search=".onFilterChange" />
+                    </VBox>
+                    <VBox class="dnFilterField">
+                        <Label text="{i18n>activityUser}" labelFor="activityUserFilter" />
+                        <Select
+                            id="activityUserFilter"
+                            width="100%"
+                            selectedKey="{view>/user}"
+                            items="{view>/users}"
+                            change=".onFilterChange">
+                            <core:Item key="{view>key}" text="{view>text}" />
+                        </Select>
+                    </VBox>
+                    <VBox class="dnFilterField">
+                        <Label text="{i18n>activityType}" labelFor="activityTypeFilter" />
+                        <Select id="activityTypeFilter" width="100%" selectedKey="{view>/activity}" change=".onFilterChange">
+                            <core:Item key="" text="{i18n>activityAll}" />
+                            <core:Item key="translate" text="{i18n>activity_translate}" />
+                            <core:Item key="save" text="{i18n>activity_save}" />
+                            <core:Item key="massTranslate" text="{i18n>activity_massTranslate}" />
+                            <core:Item key="export" text="{i18n>activity_export}" />
+                            <core:Item key="download" text="{i18n>activity_download}" />
+                        </Select>
+                    </VBox>
+                    <Button
+                        text="{i18n>clearFilters}"
+                        icon="sap-icon://clear-filter"
+                        type="Transparent"
+                        press=".onClearFilters"
+                        class="dnFilterField" />
+                </FlexBox>
+            </f:DynamicPageHeader>
+        </f:header>
+
+        <f:content>
+            <Table
+                id="activityTable"
+                growing="true"
+                growingThreshold="50"
+                growingScrollToLoad="false"
+                sticky="HeaderToolbar,ColumnHeaders"
+                popinLayout="GridSmall"
+                class="dnResultsTable">
+                <headerToolbar>
+                    <OverflowToolbar>
+                        <Title text="{view>/tableTitle}" level="H3" />
+                    </OverflowToolbar>
+                </headerToolbar>
+
+                <noData>
+                    <IllustratedMessage
+                        illustrationType="sapIllus-EmptyList"
+                        title="{i18n>activityEmptyTitle}"
+                        description="{i18n>activityEmptyText}"
+                        enableVerticalResponsiveness="true" />
+                </noData>
+
+                <columns>
+                    <Column width="11rem">
+                        <Text text="{i18n>activityTime}" />
+                    </Column>
+                    <Column width="16rem">
+                        <Text text="{i18n>activityUser}" />
+                    </Column>
+                    <Column width="10rem">
+                        <Text text="{i18n>activityType}" />
+                    </Column>
+                    <Column minScreenWidth="Tablet" demandPopin="true">
+                        <Text text="{i18n>activityDetails}" />
+                    </Column>
+                    <Column width="10rem" minScreenWidth="Desktop" demandPopin="true">
+                        <Text text="{i18n>colLanguage}" />
+                    </Column>
+                    <Column width="6rem" hAlign="End" minScreenWidth="Desktop" demandPopin="true">
+                        <Text text="{i18n>activityCount}" />
+                    </Column>
+                </columns>
+            </Table>
+        </f:content>
+
+        <f:dependents>
+            <ColumnListItem id="activityRowTemplate">
+                <cells>
+                    <Text text="{path: 'createdAt', targetType: 'any', formatter: '.formatter.createdUtc'}" class="dnMono" />
+                    <Text text="{userName}" wrapping="false" tooltip="{userName}" />
+                    <ObjectStatus text="{path: 'activity', formatter: '.activityText'}" state="Information" />
+                    <Text text="{path: 'details', formatter: '.formatter.orDash'}" maxLines="2" tooltip="{details}" />
+                    <Text text="{path: 'language', formatter: '.formatter.orDash'}" maxLines="2" class="dnMono" />
+                    <Text text="{path: 'itemCount', targetType: 'any', formatter: '.formatter.orDash'}" />
+                </cells>
+            </ColumnListItem>
+        </f:dependents>
+    </f:DynamicPage>
+</mvc:View>

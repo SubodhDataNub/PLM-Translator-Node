@@ -44,3 +44,17 @@ annotate TranslatorService.TestResults with @(
   sessionId       @title: 'Session ID';
   createdAt       @title: 'Date Created';
 };
+
+annotate TranslatorService.TestResults with {
+  createdBy @title: 'Created by';
+};
+
+annotate TranslatorService.ActivityLog with {
+  createdAt @title: 'Time';
+  userName  @title: 'User';
+  activity  @title: 'Activity';
+  details   @title: 'Details';
+  language  @title: 'Language';
+  itemCount @title: 'Items';
+  sessionId @title: 'Session ID';
+};

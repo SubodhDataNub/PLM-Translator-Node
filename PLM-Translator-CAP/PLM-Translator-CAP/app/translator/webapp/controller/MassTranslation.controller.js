@@ -43,6 +43,10 @@ sap.ui.define([
                 languageModel.setData(languages.map((lang) => ({ code: lang.code, name: lang.name, selected: false })));
             });
 
+            this.userLoaded().then((user) => {
+                if (user.user) this.getViewModel().setProperty("/testedBy", user.user);
+            });
+
             this._file = null;
             this._validation = null;
 

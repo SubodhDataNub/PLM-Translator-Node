@@ -191,6 +191,7 @@
                             <Input
                                 id="massTestedBy"
                                 value="{view>/testedBy}"
+                                editable="{= !${user>/user} }"
                                 valueLiveUpdate="true"
                                 maxLength="100"
                                 placeholder="{i18n>testedByMassPlaceholder}"

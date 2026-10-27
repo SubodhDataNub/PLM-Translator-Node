@@ -12,20 +12,36 @@ function intFromEnv(name, fallback) {
 
 const DEFAULT_MODEL = 'general/translation-llm';
 
+function parseCredentials(value, source) {
+    const text = String(value || '').trim();
+    if (!text) return null;
+    try {
+        return JSON.parse(text.startsWith('{') ? text : Buffer.from(text, 'base64').toString('utf8'));
+    } catch (e) {
+        console.error(`${source} is not a valid service account key (raw or base64 JSON): ${e.message}`);
+        return null;
+    }
+}
+
+function envValues() {
+    return {
+        credentialsJson: process.env.GOOGLE_CREDENTIALS_JSON,
+        apiKey: process.env.GOOGLE_TRANSLATE_API_KEY,
+        projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT,
+        location: process.env.GOOGLE_CLOUD_LOCATION,
+        model: process.env.GOOGLE_TRANSLATE_MODEL
+    };
+}
+
 class GoogleTranslateConfig {
     static load() {
-        let credentials = null;
-        if (process.env.GOOGLE_CREDENTIALS_JSON) {
-            try {
-                credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
-            } catch (e) {
-                console.error(`GOOGLE_CREDENTIALS_JSON is not valid JSON: ${e.message}`);
-            }
-        }
+        return GoogleTranslateConfig.build(envValues(), 'GOOGLE_CREDENTIALS_JSON');
+    }
 
-        const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY || null;
-        const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID
-            || process.env.GOOGLE_CLOUD_PROJECT
+    static build(values, source = 'Service account key') {
+        const credentials = parseCredentials(values.credentialsJson, source);
+        const apiKey = values.apiKey || null;
+        const projectId = values.projectId
             || (credentials && credentials.project_id)
             || null;
 
@@ -40,9 +56,9 @@ class GoogleTranslateConfig {
             edition,
             apiKey,
             projectId,
-            location: process.env.GOOGLE_CLOUD_LOCATION || 'global',
+            location: values.location || 'global',
             credentials,
-            model: process.env.GOOGLE_TRANSLATE_MODEL || DEFAULT_MODEL,
+            model: values.model || DEFAULT_MODEL,
             maxCharsPerRequest: intFromEnv('TRANSLATE_MAX_CHARS_PER_REQUEST', 5000),
             requestDelayMs: intFromEnv('TRANSLATE_REQUEST_DELAY_MS', 250),
             maxRetries: intFromEnv('TRANSLATE_MAX_RETRIES', 5)

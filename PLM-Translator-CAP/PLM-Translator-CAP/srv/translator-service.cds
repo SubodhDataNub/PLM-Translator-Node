@@ -1,11 +1,25 @@
 using plm.translator as db from '../db/schema';
 
 @path: '/odata/v4/translator'
+@requires: ['User', 'Admin']
 @cds.server.body_parser.limit: '300mb'
 service TranslatorService {
 
   @cds.search: { observation, testedBy, textToTranslate, translatedText }
-  entity TestResults as projection on db.TestResults;
+  @restrict: [
+    { grant: '*', to: 'Admin' },
+    { grant: 'READ', to: 'User', where: 'createdBy = $user' },
+    { grant: 'CREATE', to: 'User' }
+  ]
+  entity TestResults as projection on db.TestResults {
+    *,
+    createdBy @readonly
+  };
+
+  @readonly
+  @restrict: [{ grant: 'READ', to: 'Admin' }]
+  @cds.search: { userName, activity, details }
+  entity ActivityLog as projection on db.ActivityLog;
 
   type Language {
     code : String;
@@ -31,6 +45,7 @@ service TranslatorService {
     user     : String;
     username : String;
     computer : String;
+    isAdmin  : Boolean;
   }
 
   type Statistics {
@@ -94,6 +109,9 @@ service TranslatorService {
   function resultStatistics(outcome : String, language : String, search : String) returns Statistics;
 
   function resultLanguages() returns many String;
+
+  @requires: 'Admin'
+  function activityUsers() returns many String;
 
   function exportTestResults(outcome : String, language : String, search : String) returns ExcelFile;
 

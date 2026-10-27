@@ -17,6 +17,10 @@ sap.ui.define([
             return this.getOwnerComponent().getModel("i18n").getResourceBundle().getText(key, args);
         },
 
+        userLoaded() {
+            return this.getOwnerComponent().userLoaded;
+        },
+
         languagesLoaded() {
             return this.getOwnerComponent().languagesLoaded;
         },

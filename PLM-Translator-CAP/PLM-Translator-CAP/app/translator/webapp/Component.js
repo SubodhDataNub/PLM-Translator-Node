@@ -30,6 +30,18 @@ sap.ui.define([
                 })
                 .catch(() => []);
 
+            const userModel = new JSONModel({ user: "", isAdmin: false, loaded: false });
+            this.setModel(userModel, "user");
+            this.userLoaded = api.userInfo()
+                .then((info) => {
+                    userModel.setData({ user: info.user || "", isAdmin: Boolean(info.isAdmin), loaded: true });
+                    return userModel.getData();
+                })
+                .catch(() => {
+                    userModel.setProperty("/loaded", true);
+                    return userModel.getData();
+                });
+
             theme.init();
             this.getRouter().initialize();
         },

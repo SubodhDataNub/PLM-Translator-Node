@@ -47,6 +47,7 @@
                     <tnt:NavigationListItem key="translate" text="{i18n>navSingle}" icon="sap-icon://translate" />
                     <tnt:NavigationListItem key="massTranslation" text="{i18n>navMass}" icon="sap-icon://excel-attachment" />
                     <tnt:NavigationListItem key="testResults" text="{i18n>navResults}" icon="sap-icon://checklist-2" />
+                    <tnt:NavigationListItem key="activity" text="{i18n>navActivity}" icon="sap-icon://activity-individual" visible="{user>/isAdmin}" />
                 </tnt:NavigationList>
             </tnt:SideNavigation>
         </tnt:sideContent>

@@ -1,7 +1,8 @@
 sap.ui.define([], function () {
     "use strict";
 
-    const BASE = "/odata/v4/translator";
+    const APP_ROOT = new URL(sap.ui.require.toUrl("dn/translator") + "/", document.baseURI).pathname;
+    const BASE = APP_ROOT.replace(/\/+$/, "") + "/odata/v4/translator";
 
     const SORT_ORDERS = {
         id_desc: "ID desc",
@@ -12,16 +13,47 @@ sap.ui.define([], function () {
         accuracy_asc: "accuracy asc,ID asc"
     };
 
-    async function request(path, { method = "GET", body } = {}) {
+    let csrfToken;
+
+    async function fetchCsrfToken() {
+        try {
+            const response = await fetch(BASE + "/", {
+                method: "GET",
+                headers: { "X-CSRF-Token": "Fetch", Accept: "application/json" },
+                cache: "no-store"
+            });
+            return response.headers.get("X-CSRF-Token");
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function needsNewToken(response) {
+        return response.status === 403 &&
+            String(response.headers.get("X-CSRF-Token") || "").toLowerCase() === "required";
+    }
+
+    async function send(path, method, body) {
         const headers = { Accept: "application/json" };
         if (body !== undefined) headers["Content-Type"] = "application/json";
-
-        const response = await fetch(BASE + path, {
+        if (method !== "GET") {
+            if (csrfToken === undefined) csrfToken = (await fetchCsrfToken()) || "";
+            if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+        }
+        return fetch(BASE + path, {
             method,
             headers,
             cache: "no-store",
             body: body === undefined ? undefined : JSON.stringify(body)
         });
+    }
+
+    async function request(path, { method = "GET", body } = {}) {
+        let response = await send(path, method, body);
+        if (method !== "GET" && needsNewToken(response)) {
+            csrfToken = undefined;
+            response = await send(path, method, body);
+        }
         if (response.status === 204) return null;
 
         let data = null;
@@ -100,6 +132,27 @@ sap.ui.define([], function () {
     return {
         SORT_ORDERS,
         resultFilter,
+
+        async userInfo() {
+            return stripContext(await request("/userInfo()"));
+        },
+
+        async activityUsers() {
+            const data = await request("/activityUsers()");
+            return data.value || [];
+        },
+
+        activityFilter({ user, activity, search } = {}) {
+            const conditions = [];
+            if (user) conditions.push(`userName eq ${literal(user)}`);
+            if (activity) conditions.push(`activity eq ${literal(activity)}`);
+            search = String(search || "").trim().toLowerCase();
+            if (search) {
+                conditions.push(`(${["userName", "details", "language"]
+                    .map((f) => `contains(tolower(${f}),${literal(search)})`).join(" or ")})`);
+            }
+            return conditions.join(" and ");
+        },
 
         async languages() {
             const data = await request("/languages()");

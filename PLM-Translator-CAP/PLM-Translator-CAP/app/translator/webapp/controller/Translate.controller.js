@@ -76,6 +76,9 @@ sap.ui.define([
                 historyCount: 0
             });
             this.getView().setModel(model, "view");
+            this.userLoaded().then((user) => {
+                if (user.user) model.setProperty("/review/testedBy", user.user);
+            });
 
             this._last = null;
 

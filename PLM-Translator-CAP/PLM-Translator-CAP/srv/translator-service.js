@@ -20,6 +20,15 @@ const lower = (name) => ({ func: 'tolower', args: [ref(name)] });
 const like = (name, text) => [lower(name), 'like', { val: `%${String(text).toLowerCase()}%` }];
 const FAILED_OUTCOMES = ['Failed', 'Failure'];
 
+const isXsuaa = () => Boolean(cds.env.requires.auth && cds.env.requires.auth.kind === 'xsuaa');
+const userId = (req) => (req.user && req.user.id) || 'anonymous';
+const isAdmin = (req) => Boolean(req.user && req.user.is('Admin'));
+
+function truncate(value, max) {
+    const text = String(value ?? '');
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
 function isFailedFilter(outcome) {
     return String(outcome || '').toLowerCase().includes('fail');
 }
@@ -110,8 +119,30 @@ module.exports = class TranslatorService extends cds.ApplicationService {
 
         const languageList = () => translatorService.getSupportedLanguages();
 
+        const ownRows = (req, where) => {
+            if (isAdmin(req)) return where;
+            const mine = [ref('createdBy'), '=', { val: userId(req) }];
+            return and(where.length ? [where, mine] : [mine]);
+        };
+
+        const logActivity = async (req, action, fields = {}) => {
+            try {
+                await INSERT.into(db.ActivityLog).entries({
+                    ...fields,
+                    userName: userId(req),
+                    activity: action,
+                    details: truncate(fields.details, 1000),
+                    language: fields.language ? truncate(fields.language, 100) : null
+                });
+            } catch (e) {
+                LOG.warn(`Could not record activity "${action}": ${e.message}`);
+            }
+        };
+
         this.before('CREATE', TestResults, async (req) => {
             const data = req.data;
+            data.createdBy = userId(req);
+            if (isXsuaa()) data.testedBy = truncate(userId(req), 100);
             if (!data.outcome) return req.reject(400, 'Outcome is required');
             if (data.outcome === 'Failed') data.outcome = 'Failure';
 
@@ -127,6 +158,16 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             data.sessionId ??= crypto.randomUUID();
             data.targetLanguage = formatTargetLanguage(data.targetLanguage, await languageList());
             data.ID = await allocateIds(1);
+        });
+
+        this.after('CREATE', TestResults, async (result, req) => {
+            const data = req.data;
+            await logActivity(req, 'save', {
+                details: `Saved result #${data.ID} (${data.outcome})`,
+                language: data.targetLanguage,
+                itemCount: 1,
+                sessionId: data.sessionId
+            });
         });
 
         this.before('UPDATE', TestResults, (req) => {
@@ -153,6 +194,12 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             });
             if (!result.success) return req.reject(500, result.error);
 
+            await logActivity(req, 'translate', {
+                details: text,
+                language: result.target_language || targetLanguage,
+                itemCount: 1
+            });
+
             return {
                 translatedText: result.translated_text,
                 sourceLanguage: result.source_language,
@@ -165,7 +212,18 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             };
         });
 
-        this.on('userInfo', () => getUserInfo());
+        this.on('userInfo', (req) => {
+            const info = isXsuaa()
+                ? { user: userId(req), username: userId(req), computer: '' }
+                : getUserInfo();
+            return { ...info, isAdmin: isAdmin(req) };
+        });
+
+        this.on('activityUsers', async () => {
+            const rows = await SELECT.distinct.from(db.ActivityLog).columns('userName')
+                .where('userName is not null').orderBy('userName');
+            return rows.map((row) => row.userName).filter(Boolean);
+        });
 
         const count = async (where) => {
             const row = await withWhere(SELECT.one.from(db.TestResults).columns('count(1) as n'), where);
@@ -176,10 +234,10 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             const filters = req.data;
             const where = resultFilter(filters);
             const filtered = where.length > 0;
-            const withOutcome = (outcome) => and([...(filtered ? [where] : []), outcomeCondition(outcome)]);
+            const withOutcome = (outcome) => ownRows(req, and([...(filtered ? [where] : []), outcomeCondition(outcome)]));
 
-            const unfiltered = await count([]);
-            const total = filtered ? await count(where) : unfiltered;
+            const unfiltered = await count(ownRows(req, []));
+            const total = filtered ? await count(ownRows(req, where)) : unfiltered;
             const success = await count(withOutcome('Success'));
             const partial = await count(withOutcome('Partial'));
             let failed = await count(withOutcome('Failed'));
@@ -191,16 +249,18 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             };
         });
 
-        this.on('resultLanguages', async () => {
-            const rows = await SELECT.distinct.from(db.TestResults).columns('targetLanguage')
-                .where('targetLanguage is not null').orderBy('targetLanguage');
+        this.on('resultLanguages', async (req) => {
+            const where = ownRows(req, [ref('targetLanguage'), 'is', 'not', 'null']);
+            const rows = await withWhere(SELECT.distinct.from(db.TestResults).columns('targetLanguage'), where)
+                .orderBy('targetLanguage');
             return rows.map((row) => row.targetLanguage).filter(Boolean);
         });
 
         this.on('exportTestResults', async (req) => {
-            const rows = await withWhere(SELECT.from(db.TestResults), resultFilter(req.data))
+            const rows = await withWhere(SELECT.from(db.TestResults), ownRows(req, resultFilter(req.data)))
                 .orderBy('createdAt desc', 'ID desc');
             if (rows.length === 0) return req.reject(404, 'No test results to export');
+            await logActivity(req, 'export', { details: `Exported ${rows.length} test results`, itemCount: rows.length });
 
             const records = rows.map((row) => ({
                 'ID': row.ID,
@@ -246,7 +306,7 @@ module.exports = class TranslatorService extends cds.ApplicationService {
 
         this.on('massTranslate', async (req) => {
             const { fileName, content } = req.data;
-            const testedBy = String(req.data.testedBy || '').trim();
+            const testedBy = isXsuaa() ? truncate(userId(req), 100) : String(req.data.testedBy || '').trim();
             const labelType = normalizeLabelType(req.data.labelType);
             const targetLanguages = (req.data.targetLanguages || []).map(String).filter(Boolean);
 
@@ -295,7 +355,8 @@ module.exports = class TranslatorService extends cds.ApplicationService {
                         textToTranslate: item.text,
                         sourceLanguage: 'auto',
                         targetLanguage: targetLanguageLabel,
-                        sessionId
+                        sessionId,
+                        createdBy: userId(req)
                     };
                     if (result.success) {
                         return { ...base, outcome: 'Success', translatedText: result.translated_text,
@@ -311,6 +372,12 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             }
 
             const totalTranslations = totalRows * targetLanguages.length;
+            await logActivity(req, 'massTranslate', {
+                details: `${fileName}: ${totalRows} rows × ${targetLanguages.length} languages, ${successful} successful`,
+                language: targetLanguages.join(', '),
+                itemCount: totalTranslations,
+                sessionId
+            });
             return {
                 message: `Mass translation completed: ${successful} successful`,
                 sessionId,
@@ -328,8 +395,14 @@ module.exports = class TranslatorService extends cds.ApplicationService {
         this.on('downloadSessionResults', async (req) => {
             const { sessionId } = req.data;
             if (!sessionId) return req.reject(400, 'sessionId is required');
-            const rows = await SELECT.from(db.TestResults).where({ sessionId }).orderBy('ID');
+            const where = ownRows(req, [ref('sessionId'), '=', { val: sessionId }]);
+            const rows = await withWhere(SELECT.from(db.TestResults), where).orderBy('ID');
             if (rows.length === 0) return req.reject(404, 'No translation results found for this session');
+            await logActivity(req, 'download', {
+                details: `Downloaded ${rows.length} results of session ${sessionId}`,
+                itemCount: rows.length,
+                sessionId
+            });
 
             const workbook = mass.sessionResultsWorkbook(rows, await languageList());
             return excelFile(`translation_results_${timestampForFilename()}.xlsx`, await workbookToBuffer(workbook));

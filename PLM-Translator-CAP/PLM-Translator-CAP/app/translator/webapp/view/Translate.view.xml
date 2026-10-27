@@ -221,6 +221,7 @@
                                     <Input
                                         id="testedBy"
                                         value="{view>/review/testedBy}"
+                                        editable="{= !${user>/user} }"
                                         valueLiveUpdate="true"
                                         maxLength="100"
                                         placeholder="{i18n>testedByPlaceholder}"

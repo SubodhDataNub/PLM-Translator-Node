@@ -156,3 +156,8 @@
         width: 100%;
     }
 }
+
+.sapTntSideNavigation:not(.sapTntSideNavigationNotExpandedWidth) {
+    width: 12rem;
+    min-width: 12rem;
+}

@@ -2,6 +2,10 @@
 
 const { GoogleTranslateConfig } = require('./config');
 const { terminology, normalizeLabelType } = require('./terminology');
+const { DESTINATION_NAME, hasDestinationService, readGoogleDestination } = require('./google-destination');
+
+const DESTINATION_REFRESH_MS = 10 * 60 * 1000;
+const DESTINATION_RETRY_MS = 60 * 1000;
 
 const V2_BASE_URL = 'https://translation.googleapis.com/language/translate/v2';
 
@@ -31,6 +35,41 @@ class TranslatorService {
         this.languagesFailedAt = 0;
         this._v3Client = null;
         this.modelUnsupportedTargets = new Set();
+        this.configSource = 'environment';
+        this._destinationNextCheck = 0;
+        this._destinationLoading = null;
+    }
+
+    async ensureConfig() {
+        if (!hasDestinationService() || Date.now() < this._destinationNextCheck) return;
+        if (!this._destinationLoading) {
+            this._destinationLoading = this._loadFromDestination().finally(() => {
+                this._destinationLoading = null;
+            });
+        }
+        await this._destinationLoading;
+    }
+
+    async _loadFromDestination() {
+        try {
+            const values = await readGoogleDestination();
+            this._applyConfig(GoogleTranslateConfig.build(values, `Destination ${DESTINATION_NAME}`));
+            this.configSource = `destination ${DESTINATION_NAME}`;
+            this._destinationNextCheck = Date.now() + DESTINATION_REFRESH_MS;
+        } catch (e) {
+            console.error(`Could not read Google settings from destination ${DESTINATION_NAME}: ${e.message}`);
+            this._destinationNextCheck = Date.now() + DESTINATION_RETRY_MS;
+        }
+    }
+
+    _applyConfig(cfg) {
+        const fingerprint = (c) => JSON.stringify([c.edition, c.apiKey, c.projectId, c.location, c.model, c.credentials]);
+        if (fingerprint(cfg) === fingerprint(this.config)) return;
+        this.config = cfg;
+        this._v3Client = null;
+        this.languagesCache = null;
+        this.languagesFailedAt = 0;
+        this.modelUnsupportedTargets.clear();
     }
 
     isConfigured() {
@@ -42,6 +81,7 @@ class TranslatorService {
     }
 
     async getSupportedLanguages() {
+        await this.ensureConfig();
         if (this.languagesCache) {
             return this.languagesCache;
         }
@@ -126,6 +166,7 @@ class TranslatorService {
     }
 
     async translateText(text, targetLanguage, { labelType } = {}) {
+        await this.ensureConfig();
         if (!this.isConfigured()) {
             return {
                 success: false,
@@ -159,6 +200,7 @@ class TranslatorService {
     }
 
     async translateBatch(texts, targetLanguage, maxBatchSize = 50, { labelType } = {}) {
+        await this.ensureConfig();
         if (!this.isConfigured()) {
             return texts.map((text) => ({
                 success: false,
