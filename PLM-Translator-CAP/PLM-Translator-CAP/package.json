@@ -25,7 +25,9 @@
   },
   "devDependencies": {
     "@cap-js/sqlite": "^3.1.2",
-    "@sap/cds-dk": "^10.2.0"
+    "@sap/cds-dk": "^10.2.0",
+    "@sap/eslint-plugin-cds": "^4",
+    "eslint": "^10"
   },
   "overrides": {
     "exceljs": {
