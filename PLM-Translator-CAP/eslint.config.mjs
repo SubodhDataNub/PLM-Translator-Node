@@ -10,7 +10,6 @@ export default [
       'mta_archives/',
       'Train_Data/',
       'app/translator/dist/',
-      'app/translator/webapp/localService/',
       'app/translator/webapp/test/'
     ]
   },

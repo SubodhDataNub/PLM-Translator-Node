@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@cap-js/hana": "^3",
-    "@google-cloud/translate": "^10.1.1",
     "@sap-cloud-sdk/connectivity": "^4.9.1",
+    "@sap-cloud-sdk/http-client": "^4.9.1",
     "@sap/cds": "^10.2.1",
     "@sap/xssec": "^4",
     "dotenv": "^18.0.4",

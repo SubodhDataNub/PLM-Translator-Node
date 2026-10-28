@@ -71,22 +71,16 @@ cds.on('served', async () => {
 });
 
 function describeTranslator() {
-    const cfg = translatorService.config;
-    const source = `settings from ${translatorService.configSource}`;
-    if (cfg.edition === 'advanced') {
-        return `Google Cloud Translation Advanced (v3) - project ${cfg.projectId}, location ${cfg.location}, model ${cfg.model} (${source})`;
+    if (translatorService.isConfigured()) {
+        return 'Google Cloud Translation Basic (v2) - NMT model via BTP destination';
     }
-    if (cfg.edition === 'basic') {
-        return `Google Cloud Translation Basic (v2) - API key, standard model (${source})`;
-    }
-    return 'NOT CONFIGURED - create the google-translation destination, or set GOOGLE_TRANSLATE_API_KEY or GOOGLE_CLOUD_PROJECT_ID (see .env.example)';
+    return 'NOT CONFIGURED - create the google-translation destination with X-Goog-Api-Key header';
 }
 
 cds.on('listening', ({ server, url }) => {
     server.requestTimeout = REQUEST_TIMEOUT_MS;
     console.log(`DN Translator (CAP) running on ${url}`);
-    translatorService.ensureConfig()
-        .then(() => console.log(`Translation provider: ${describeTranslator()}`));
+    console.log(`Translation provider: ${describeTranslator()}`);
     setImmediate(() => terminology.load());
 });
 
