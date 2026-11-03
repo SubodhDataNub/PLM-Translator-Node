@@ -2,104 +2,97 @@
 
 const cds = require('@sap/cds');
 const crypto = require('crypto');
+const { Readable } = require('stream');
 const config = require('./lib/config');
 const { translatorService } = require('./lib/translator');
 const { normalizeLabelType } = require('./lib/terminology');
-const { ExcelJS, XLSX_MIME, readSpreadsheet, addRecordsSheet, workbookToBuffer } = require('./lib/excel');
+const { XLSX_MIME, readSpreadsheet, workbookToBuffer } = require('./lib/excel');
 const mass = require('./lib/mass-translation');
 const {
-    getUserInfo, validateTranslationInput, parseAccuracy, formatTargetLanguage,
-    timestampForFilename, formatDateTime, round
+    getUserInfo, parseAccuracy, parseLanguageCode, formatTargetLanguage, timestampForFilename, round
 } = require('./lib/utils');
 
 const LOG = cds.log('translator');
 const INSERT_CHUNK_SIZE = 500;
-
-const ref = (name) => ({ ref: [name] });
-const lower = (name) => ({ func: 'tolower', args: [ref(name)] });
-const like = (name, text) => [lower(name), 'like', { val: `%${String(text).toLowerCase()}%` }];
-const FAILED_OUTCOMES = ['Failed', 'Failure'];
+const MAX_CHARS = 5000;
+const LABEL_TYPE_NAMES = { general: 'General', food: 'Food', cosmetic: 'Cosmetic or detergent' };
 
 const isXsuaa = () => Boolean(cds.env.requires.auth && cds.env.requires.auth.kind === 'xsuaa');
 const userId = (req) => (req.user && req.user.id) || 'anonymous';
-const isAdmin = (req) => Boolean(req.user && req.user.is('Admin'));
+const isFailure = (outcome) => mass.isFailureOutcome(outcome) || outcome === 'Failed';
 
 function truncate(value, max) {
     const text = String(value ?? '');
     return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-function isFailedFilter(outcome) {
-    return String(outcome || '').toLowerCase().includes('fail');
+function defaultTestedBy(req) {
+    return truncate(isXsuaa() ? userId(req) : getUserInfo().user, 100);
 }
 
-function and(conditions) {
-    const where = [];
-    conditions.forEach((condition, i) => {
-        if (i > 0) where.push('and');
-        where.push({ xpr: condition });
-    });
-    return where;
-}
-
-function outcomeCondition(outcome) {
-    if (isFailedFilter(outcome)) {
-        return [ref('outcome'), 'in', { list: FAILED_OUTCOMES.map((val) => ({ val })) }];
+async function toBuffer(value) {
+    if (value == null) return null;
+    if (Buffer.isBuffer(value)) return value;
+    if (value instanceof Readable) {
+        const chunks = [];
+        for await (const chunk of value) chunks.push(Buffer.from(chunk));
+        return Buffer.concat(chunks);
     }
-    return [ref('outcome'), '=', { val: outcome }];
+    return Buffer.from(value);
 }
 
-function resultFilter({ outcome, language, search } = {}) {
-    const conditions = [];
-    outcome = String(outcome || '').trim();
-    language = String(language || '').trim();
-    search = String(search || '').trim();
+function uploadFileName(headers = {}) {
+    const disposition = headers['content-disposition'] || '';
+    const encoded = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(disposition);
+    if (encoded) return decodeURIComponent(encoded[1].trim().replace(/^"|"$/g, ''));
+    const plain = /filename="?([^";]+)"?/i.exec(disposition);
+    if (plain) return decodeURIComponent(plain[1].trim());
+    if (headers.slug) return decodeURIComponent(headers.slug);
+    return null;
+}
 
-    if (outcome) conditions.push(outcomeCondition(outcome));
-    if (language) conditions.push(like('targetLanguage', language));
-    if (search) {
-        const fields = ['testedBy', 'observation', 'textToTranslate', 'translatedText'];
-        const anyField = [];
-        fields.forEach((field, i) => {
-            if (i > 0) anyField.push('or');
-            anyField.push(...like(field, search));
-        });
-        conditions.push(anyField);
+function terminologyNote(terminology, labelType) {
+    const parts = [];
+    if (LABEL_TYPE_NAMES[labelType]) parts.push(`Label type: ${LABEL_TYPE_NAMES[labelType]}`);
+    if (terminology && terminology.skipped) {
+        parts.push('Label terminology could not be applied to this text, so it was translated without it.');
+    } else if (terminology) {
+        if (terminology.official && terminology.official.length) {
+            parts.push(`Official wording: ${terminology.official.join(', ')}`);
+        }
+        if (terminology.kept && terminology.kept.length) {
+            parts.push(`Kept as written: ${terminology.kept.join(', ')}`);
+        }
     }
-    return and(conditions);
+    return truncate(parts.join(' · '), 1000) || null;
 }
 
-function withWhere(query, where) {
-    if (where.length) query.SELECT.where = where;
-    return query;
-}
-
-function excelFile(fileName, buffer) {
-    return { fileName, mimeType: XLSX_MIME, content: buffer.toString('base64') };
-}
-
-function decodeUpload(req, fileName, content) {
-    if (!content) return req.reject(400, 'No file uploaded');
-    if (!fileName) return req.reject(400, 'No file selected');
-    if (!mass.isExcelFilename(fileName)) return req.reject(400, 'Please upload an Excel file (.xlsx or .xls)');
-    const buffer = Buffer.from(String(content).replace(/^data:[^,]*,/, ''), 'base64');
-    if (buffer.length > config.maxUploadMb * 1024 * 1024) {
-        return req.reject(413, `File is larger than ${config.maxUploadMb} MB`);
-    }
-    return buffer;
+function formatEstimate(totalRows, languageCount) {
+    if (!totalRows || !languageCount) return null;
+    const { estimatedMinutes, estimatedHours } = mass.estimateProcessingTime(totalRows, languageCount);
+    const total = (totalRows * languageCount).toLocaleString('en');
+    const plural = (n, unit) => `${n} ${unit}${n === 1 ? '' : 's'}`;
+    const time = estimatedHours >= 1 ? `${estimatedHours.toFixed(1)} hours`
+        : estimatedMinutes >= 1 ? plural(Math.round(estimatedMinutes), 'minute')
+            : plural(Math.max(1, Math.round(estimatedMinutes * 60)), 'second');
+    return `About ${time} for ${total} translations`;
 }
 
 module.exports = class TranslatorService extends cds.ApplicationService {
     init() {
-        const { TestResults } = this.entities;
+        const { TestResults, MassTranslations, MassTranslationLanguages } = this.entities;
         const db = cds.entities('plm.translator');
 
         let nextId = null;
         let idInit = null;
         const allocateIds = async (count) => {
             if (nextId === null) {
-                idInit ??= SELECT.one.from(db.TestResults).columns('max(ID) as maxId')
-                    .then((row) => { nextId ??= ((row && row.maxId) || 0) + 1; });
+                idInit ??= Promise.all([
+                    SELECT.one.from(db.TestResults).columns('max(ID) as maxId'),
+                    SELECT.one.from(TestResults.drafts).columns('max(ID) as maxId')
+                ]).then((rows) => {
+                    nextId ??= Math.max(0, ...rows.map((row) => (row && row.maxId) || 0)) + 1;
+                });
                 await idInit;
             }
             const first = nextId;
@@ -119,12 +112,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
 
         const languageList = () => translatorService.getSupportedLanguages();
 
-        const ownRows = (req, where) => {
-            if (isAdmin(req)) return where;
-            const mine = [ref('createdBy'), '=', { val: userId(req) }];
-            return and(where.length ? [where, mine] : [mine]);
-        };
-
         const logActivity = async (req, action, fields = {}) => {
             try {
                 await INSERT.into(db.ActivityLog).entries({
@@ -139,15 +126,53 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             }
         };
 
+        // Single translation: a draft test result that is translated, reviewed and saved
+
+        this.before('NEW', TestResults.drafts, async (req) => {
+            req.data.ID = await allocateIds(1);
+            req.data.testedBy ??= defaultTestedBy(req);
+        });
+
+        this.before('UPDATE', TestResults.drafts, (req) => {
+            if ('outcome' in req.data && isFailure(req.data.outcome)) req.data.accuracy = 0;
+        });
+
+        this.on('translateText', async (req) => {
+            const draft = await SELECT.one.from(req.subject).columns('textToTranslate', 'targetLanguage');
+            if (!draft) return req.reject(404, 'Test result not found');
+            const text = String(draft.textToTranslate ?? '').trim();
+            if (!text) return req.reject(400, 'Enter the text to translate first');
+            if (text.length > MAX_CHARS) return req.reject(400, `Text is too long. Maximum ${MAX_CHARS} characters allowed.`);
+            if (!draft.targetLanguage) return req.reject(400, 'Select a target language first');
+
+            const languages = await languageList();
+            const targetCode = parseLanguageCode(draft.targetLanguage, languages);
+            const result = await translatorService.translateText(text, targetCode, { labelType: normalizeLabelType() });
+            if (!result.success) return req.reject(502, result.error || 'Translation failed');
+
+            const sourceLabel = formatTargetLanguage(result.source_language, languages);
+            await UPDATE(req.subject).with({
+                translatedText: result.translated_text,
+                sourceLanguage: sourceLabel.length <= 20 ? sourceLabel : truncate(result.source_language, 20),
+                terminologyNote: terminologyNote(result.terminology, result.label_type)
+            });
+            await logActivity(req, 'translate', { details: text, language: targetCode, itemCount: 1 });
+        });
+
         this.before('CREATE', TestResults, async (req) => {
             const data = req.data;
             data.createdBy = userId(req);
             if (isXsuaa()) data.testedBy = truncate(userId(req), 100);
             if (!data.outcome) return req.reject(400, 'Outcome is required');
             if (data.outcome === 'Failed') data.outcome = 'Failure';
+            if (!String(data.translatedText ?? '').trim()) {
+                return req.reject(400, 'Translate the text before saving the result');
+            }
+            if (!String(data.testedBy ?? '').trim()) return req.reject(400, 'Tested by is required');
 
             if (data.accuracy === null || data.accuracy === undefined || data.accuracy === '') {
-                data.accuracy = null;
+                if (isFailure(data.outcome)) data.accuracy = 0;
+                else return req.reject(400, 'Accuracy is required unless the outcome is Failed');
             } else {
                 const [valid, error, value] = parseAccuracy(data.accuracy);
                 if (!valid) return req.reject(400, error);
@@ -157,7 +182,7 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             data.sourceLanguage ??= 'auto';
             data.sessionId ??= crypto.randomUUID();
             data.targetLanguage = formatTargetLanguage(data.targetLanguage, await languageList());
-            data.ID = await allocateIds(1);
+            data.ID ??= await allocateIds(1);
         });
 
         this.after('CREATE', TestResults, async (result, req) => {
@@ -178,142 +203,82 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             }
         });
 
-        this.on('languages', async () => {
-            const languages = await languageList();
-            return languages.filter((lang) => lang.key).map((lang) => ({ code: lang.key, name: lang.text }));
+        // Mass translation: a draft job with an uploaded Excel file and target languages
+
+        this.before('NEW', MassTranslations.drafts, async (req) => {
+            req.data.testedBy ??= defaultTestedBy(req);
+            req.data.status = 'New';
+            req.data.templateFileName = 'mass_translation_template.xlsx';
+            req.data.templateFile = await workbookToBuffer(mass.templateWorkbook());
         });
 
-        this.on('translate', async (req) => {
-            const text = String(req.data.text ?? '').trim();
-            const targetLanguage = String(req.data.targetLanguage ?? '').trim();
-            const error = validateTranslationInput(text, targetLanguage);
-            if (error) return req.reject(400, error);
+        this.before('UPDATE', MassTranslations.drafts, async (req) => {
+            if (!('file' in req.data)) return;
+            const buffer = await toBuffer(req.data.file);
+            if (!buffer || buffer.length === 0) {
+                Object.assign(req.data, { file: null, fileName: null, mimeType: null, totalRows: null, textColumn: null });
+                return;
+            }
+            if (buffer.length > config.maxUploadMb * 1024 * 1024) {
+                return req.reject(413, `File is larger than ${config.maxUploadMb} MB`);
+            }
+            const headers = req.headers || {};
+            const fileName = uploadFileName(headers) || 'upload.xlsx';
+            if (!mass.isExcelFilename(fileName)) return req.reject(400, 'Please upload an Excel file (.xlsx or .xls)');
 
-            const result = await translatorService.translateText(text, targetLanguage, {
-                labelType: normalizeLabelType(req.data.labelType)
+            let validation;
+            try {
+                validation = await mass.validateWorkbook(buffer);
+            } catch (e) {
+                return req.reject(400, `Error reading Excel file: ${e.message}`);
+            }
+            Object.assign(req.data, {
+                file: buffer,
+                fileName: truncate(fileName, 255),
+                mimeType: String(headers['content-type'] || XLSX_MIME).split(';')[0],
+                totalRows: validation.totalRows,
+                textColumn: truncate(validation.textColumn, 255)
             });
-            if (!result.success) return req.reject(500, result.error);
-
-            await logActivity(req, 'translate', {
-                details: text,
-                language: result.target_language || targetLanguage,
-                itemCount: 1
-            });
-
-            return {
-                translatedText: result.translated_text,
-                sourceLanguage: result.source_language,
-                targetLanguage: result.target_language,
-                labelType: result.label_type,
-                labelTypeDetected: result.label_type_detected,
-                terminology: result.terminology
-                    ? { official: result.terminology.official || [], kept: result.terminology.kept || [], skipped: Boolean(result.terminology.skipped) }
-                    : null
-            };
         });
 
-        this.on('userInfo', (req) => {
-            const info = isXsuaa()
-                ? { user: userId(req), username: userId(req), computer: '' }
-                : getUserInfo();
-            return { ...info, isAdmin: isAdmin(req) };
-        });
-
-        this.on('activityUsers', async () => {
-            const rows = await SELECT.distinct.from(db.ActivityLog).columns('userName')
-                .where('userName is not null').orderBy('userName');
-            return rows.map((row) => row.userName).filter(Boolean);
-        });
-
-        const count = async (where) => {
-            const row = await withWhere(SELECT.one.from(db.TestResults).columns('count(1) as n'), where);
-            return Number((row && row.n) || 0);
+        const wantsEstimate = (req) => {
+            const columns = req.query.SELECT && req.query.SELECT.columns;
+            return !columns || columns.some((col) => col === '*' || (col.ref && col.ref[0] === 'estimatedTime'));
         };
 
-        this.on('resultStatistics', async (req) => {
-            const filters = req.data;
-            const where = resultFilter(filters);
-            const filtered = where.length > 0;
-            const withOutcome = (outcome) => ownRows(req, and([...(filtered ? [where] : []), outcomeCondition(outcome)]));
-
-            const unfiltered = await count(ownRows(req, []));
-            const total = filtered ? await count(ownRows(req, where)) : unfiltered;
-            const success = await count(withOutcome('Success'));
-            const partial = await count(withOutcome('Partial'));
-            let failed = await count(withOutcome('Failed'));
-            if (!filtered && failed === 0 && total > 0) failed = total - success - partial;
-
-            return {
-                total, success, partial, failed, unfiltered,
-                successRate: total > 0 ? round((success / total) * 100, 1) : 0
-            };
-        });
-
-        this.on('resultLanguages', async (req) => {
-            const where = ownRows(req, [ref('targetLanguage'), 'is', 'not', 'null']);
-            const rows = await withWhere(SELECT.distinct.from(db.TestResults).columns('targetLanguage'), where)
-                .orderBy('targetLanguage');
-            return rows.map((row) => row.targetLanguage).filter(Boolean);
-        });
-
-        this.on('exportTestResults', async (req) => {
-            const rows = await withWhere(SELECT.from(db.TestResults), ownRows(req, resultFilter(req.data)))
-                .orderBy('createdAt desc', 'ID desc');
-            if (rows.length === 0) return req.reject(404, 'No test results to export');
-            await logActivity(req, 'export', { details: `Exported ${rows.length} test results`, itemCount: rows.length });
-
-            const records = rows.map((row) => ({
-                'ID': row.ID,
-                'Text to Translate': row.textToTranslate,
-                'Translated Text': row.translatedText,
-                'Source Language': row.sourceLanguage,
-                'Target Language': row.targetLanguage,
-                'Outcome': mass.isFailureOutcome(row.outcome) ? 'Failed' : row.outcome,
-                'Observation': row.observation,
-                'Accuracy (%)': row.accuracy,
-                'Tested By': row.testedBy,
-                'Date Created': formatDateTime(row.createdAt),
-                'Session ID': row.sessionId
-            }));
-
-            const workbook = new ExcelJS.Workbook();
-            addRecordsSheet(workbook, 'Test Results', records);
-            return excelFile(`test_results_${timestampForFilename()}.xlsx`, await workbookToBuffer(workbook));
-        });
-
-        this.on('estimateProcessingTime', (req) => {
-            const { recordCount, targetLanguages } = req.data;
-            if (!Number.isInteger(recordCount) || recordCount <= 0) {
-                return req.reject(400, 'Valid recordCount is required');
+        const addEstimates = async (rows, req, jobs, languages) => {
+            if (!wantsEstimate(req)) return;
+            const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
+            for (const row of list) {
+                if (!row || !row.ID) continue;
+                const job = await SELECT.one.from(jobs).columns('totalRows').where({ ID: row.ID });
+                const count = await SELECT.one.from(languages).columns('count(1) as n').where({ parent_ID: row.ID });
+                row.estimatedTime = formatEstimate(job && job.totalRows, Number((count && count.n) || 0));
             }
-            if (!Array.isArray(targetLanguages) || targetLanguages.length === 0) {
-                return req.reject(400, 'Valid targetLanguages list is required');
-            }
-            return mass.estimateProcessingTime(recordCount, targetLanguages.length);
+        };
+
+        this.after('READ', MassTranslations,
+            (rows, req) => addEstimates(rows, req, MassTranslations, MassTranslationLanguages));
+        this.after('READ', MassTranslations.drafts,
+            (rows, req) => addEstimates(rows, req, MassTranslations.drafts, MassTranslationLanguages.drafts));
+
+        this.before('CREATE', MassTranslations, (req) => {
+            if (isXsuaa()) req.data.testedBy = truncate(userId(req), 100);
+            req.data.status = 'New';
         });
 
-        this.on('validateFile', async (req) => {
-            const { fileName, content, targetLanguages } = req.data;
-            const buffer = decodeUpload(req, fileName, content);
-            if (!Buffer.isBuffer(buffer)) return;
-            const languageCount = Array.isArray(targetLanguages) && targetLanguages.length ? targetLanguages.length : 1;
-            try {
-                return await mass.validateWorkbook(buffer, languageCount);
-            } catch (e) {
-                return req.reject(400, e.message);
-            }
-        });
+        this.on('start', async (req) => {
+            const job = await SELECT.one.from(req.subject).columns('ID', 'status', 'fileName', 'file', 'testedBy');
+            if (!job) return req.reject(404, 'Mass translation not found');
+            if (job.status !== 'New') return req.reject(409, 'This mass translation has already run');
 
-        this.on('massTranslate', async (req) => {
-            const { fileName, content } = req.data;
-            const testedBy = isXsuaa() ? truncate(userId(req), 100) : String(req.data.testedBy || '').trim();
-            const labelType = normalizeLabelType(req.data.labelType);
-            const targetLanguages = (req.data.targetLanguages || []).map(String).filter(Boolean);
-
-            if (!testedBy) return req.reject(400, 'Tested by field is required');
-            if (targetLanguages.length === 0) return req.reject(400, 'Target languages are required');
-            const buffer = decodeUpload(req, fileName, content);
-            if (!Buffer.isBuffer(buffer)) return;
+            const buffer = await toBuffer(job.file);
+            if (!buffer || buffer.length === 0) return req.reject(400, 'Upload an Excel file first');
+            const languageRows = await SELECT.from(MassTranslationLanguages).columns('language').where({ parent_ID: job.ID });
+            const targetLanguages = [...new Set(languageRows.map((row) => row.language).filter(Boolean))];
+            if (targetLanguages.length === 0) return req.reject(400, 'Add at least one target language');
+            const testedBy = isXsuaa() ? truncate(userId(req), 100) : String(job.testedBy || '').trim();
+            if (!testedBy) return req.reject(400, 'Tested by is required');
 
             let table;
             try {
@@ -321,12 +286,11 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             } catch (e) {
                 return req.reject(400, `Error reading Excel file: ${e.message}`);
             }
-            if (table.columns.length === 0 || table.rows.length === 0) {
-                return req.reject(400, 'Excel file is empty');
-            }
+            if (table.columns.length === 0 || table.rows.length === 0) return req.reject(400, 'Excel file is empty');
 
             const totalRows = table.rows.length;
             const sessionId = `mass_translation_${timestampForFilename()}_${crypto.randomBytes(4).toString('hex')}`;
+            const labelType = normalizeLabelType();
             const { textsData } = mass.collectTexts(table);
             const texts = textsData.map((item) => item.text);
             const languages = await languageList();
@@ -371,45 +335,32 @@ module.exports = class TranslatorService extends cds.ApplicationService {
                 successful += records.filter((r) => r.outcome === 'Success').length;
             }
 
-            const totalTranslations = totalRows * targetLanguages.length;
+            const totalTranslations = texts.length * targetLanguages.length;
+            const savedRows = await SELECT.from(db.TestResults).where({ sessionId }).orderBy('ID');
+            const workbook = mass.sessionResultsWorkbook(savedRows, languages);
+
+            await UPDATE(MassTranslations, job.ID).with({
+                status: 'Completed',
+                sessionId,
+                totalRows,
+                successful,
+                failed: totalTranslations - successful,
+                successRate: totalTranslations > 0 ? round((successful / totalTranslations) * 100, 2) : 0,
+                labelTypes: Object.entries(labelTypes)
+                    .filter(([, n]) => n > 0)
+                    .map(([type, n]) => `${LABEL_TYPE_NAMES[type]}: ${n}`)
+                    .join(', ') || null,
+                resultFileName: `translation_results_${timestampForFilename()}.xlsx`,
+                resultFile: await workbookToBuffer(workbook)
+            });
+
             await logActivity(req, 'massTranslate', {
-                details: `${fileName}: ${totalRows} rows × ${targetLanguages.length} languages, ${successful} successful`,
+                details: `${job.fileName}: ${totalRows} rows × ${targetLanguages.length} languages, ${successful} successful`,
                 language: targetLanguages.join(', '),
                 itemCount: totalTranslations,
                 sessionId
             });
-            return {
-                message: `Mass translation completed: ${successful} successful`,
-                sessionId,
-                labelType,
-                totalRows,
-                successful,
-                failed: totalTranslations - successful,
-                successRate: totalRows > 0 ? round((successful / totalTranslations) * 100, 2) : 0,
-                languagesCount: targetLanguages.length,
-                targetLanguages,
-                labelTypes
-            };
-        });
-
-        this.on('downloadSessionResults', async (req) => {
-            const { sessionId } = req.data;
-            if (!sessionId) return req.reject(400, 'sessionId is required');
-            const where = ownRows(req, [ref('sessionId'), '=', { val: sessionId }]);
-            const rows = await withWhere(SELECT.from(db.TestResults), where).orderBy('ID');
-            if (rows.length === 0) return req.reject(404, 'No translation results found for this session');
-            await logActivity(req, 'download', {
-                details: `Downloaded ${rows.length} results of session ${sessionId}`,
-                itemCount: rows.length,
-                sessionId
-            });
-
-            const workbook = mass.sessionResultsWorkbook(rows, await languageList());
-            return excelFile(`translation_results_${timestampForFilename()}.xlsx`, await workbookToBuffer(workbook));
-        });
-
-        this.on('downloadTemplate', async () => {
-            return excelFile('mass_translation_template.xlsx', await workbookToBuffer(mass.templateWorkbook()));
+            req.info(`Mass translation completed: ${successful} of ${totalTranslations} successful`);
         });
 
         return super.init();

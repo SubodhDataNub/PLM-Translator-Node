@@ -1,0 +1,149 @@
+{
+  "_version": "1.65.0",
+  "sap.app": {
+    "id": "dn.masstranslation",
+    "type": "application",
+    "i18n": "i18n/i18n.properties",
+    "applicationVersion": {
+      "version": "1.0.0"
+    },
+    "title": "{{appTitle}}",
+    "description": "{{appDescription}}",
+    "dataSources": {
+      "mainService": {
+        "uri": "odata/v4/translator/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
+      }
+    },
+    "crossNavigation": {
+      "inbounds": {
+        "MassTranslation-manage": {
+          "semanticObject": "MassTranslation",
+          "action": "manage",
+          "title": "{{appTitle}}",
+          "subTitle": "{{appDescription}}",
+          "icon": "sap-icon://excel-attachment",
+          "signature": {
+            "parameters": {},
+            "additionalParameters": "allowed"
+          }
+        }
+      }
+    }
+  },
+  "sap.ui": {
+    "technology": "UI5",
+    "icons": {
+      "icon": "sap-icon://excel-attachment"
+    },
+    "deviceTypes": {
+      "desktop": true,
+      "tablet": true,
+      "phone": true
+    }
+  },
+  "sap.ui5": {
+    "flexEnabled": true,
+    "dependencies": {
+      "minUI5Version": "1.136.0",
+      "libs": {
+        "sap.m": {},
+        "sap.ui.core": {},
+        "sap.fe.templates": {}
+      }
+    },
+    "contentDensities": {
+      "compact": true,
+      "cozy": true
+    },
+    "models": {
+      "i18n": {
+        "type": "sap.ui.model.resource.ResourceModel",
+        "settings": {
+          "bundleName": "dn.masstranslation.i18n.i18n"
+        }
+      },
+      "": {
+        "dataSource": "mainService",
+        "preload": true,
+        "settings": {
+          "operationMode": "Server",
+          "autoExpandSelect": true,
+          "earlyRequests": true
+        }
+      }
+    },
+    "routing": {
+      "routes": [
+        {
+          "pattern": ":?query:",
+          "name": "MassTranslationsList",
+          "target": "MassTranslationsList"
+        },
+        {
+          "pattern": "MassTranslations({key}):?query:",
+          "name": "MassTranslationsObjectPage",
+          "target": "MassTranslationsObjectPage"
+        }
+      ],
+      "targets": {
+        "MassTranslationsList": {
+          "type": "Component",
+          "id": "MassTranslationsList",
+          "name": "sap.fe.templates.ListReport",
+          "options": {
+            "settings": {
+              "contextPath": "/MassTranslations",
+              "variantManagement": "Page",
+              "initialLoad": "Enabled",
+              "navigation": {
+                "MassTranslations": {
+                  "detail": {
+                    "route": "MassTranslationsObjectPage"
+                  }
+                }
+              },
+              "controlConfiguration": {
+                "@com.sap.vocabularies.UI.v1.LineItem": {
+                  "tableSettings": {
+                    "type": "ResponsiveTable",
+                    "selectionMode": "None"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "MassTranslationsObjectPage": {
+          "type": "Component",
+          "id": "MassTranslationsObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "contextPath": "/MassTranslations",
+              "editableHeaderContent": false,
+              "controlConfiguration": {
+                "results/@com.sap.vocabularies.UI.v1.LineItem": {
+                  "tableSettings": {
+                    "type": "ResponsiveTable"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "sap.fiori": {
+    "registrationIds": [],
+    "archeType": "transactional"
+  },
+  "sap.cloud": {
+    "public": true,
+    "service": "plmtranslatorcap.service"
+  }
+}

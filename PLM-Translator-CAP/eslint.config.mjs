@@ -9,8 +9,7 @@ export default [
       'gen/',
       'mta_archives/',
       'Train_Data/',
-      'app/translator/dist/',
-      'app/translator/webapp/test/'
+      'app/*/dist/'
     ]
   },
   {

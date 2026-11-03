@@ -1,0 +1,12 @@
+{
+  "name": "dn.translations",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "ui5 build -a --clean-dest --include-task=generateCachebusterInfo"
+  },
+  "devDependencies": {
+    "@ui5/cli": "^4.0.0",
+    "ui5-task-zipper": "^3.0.0"
+  }
+}

@@ -5,20 +5,19 @@ const path = require('path');
 const cds = require('@sap/cds');
 const { translatorService } = require('./srv/lib/translator');
 const { terminology } = require('./srv/lib/terminology');
+const { syncCodeLists } = require('./srv/lib/code-lists');
 
 const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
 
-const APP = '/translator/webapp/index.html';
+const LAUNCHPAD = '/launchpage.html';
+const APPS = ['translations', 'masstranslation', 'activity'];
 const PAGES = {
-    '/': APP,
-    '/index.html': APP,
-    '/mass-translation': `${APP}#/mass-translation`,
-    '/mass-translation.html': `${APP}#/mass-translation`,
-    '/test-results': `${APP}#/test-results`,
-    '/test-results.html': `${APP}#/test-results`
+    '/': LAUNCHPAD,
+    '/index.html': LAUNCHPAD,
+    '/mass-translation': `${LAUNCHPAD}#MassTranslation-manage`,
+    '/test-results': `${LAUNCHPAD}#TestResult-manage`
 };
 
-const UI_PREFIX = '/translator/webapp';
 const isSqlite = cds.env.requires.db && cds.env.requires.db.kind === 'sqlite';
 
 const dbUrl = isSqlite && cds.env.requires.db.credentials && cds.env.requires.db.credentials.url;
@@ -27,7 +26,9 @@ if (dbUrl && dbUrl !== ':memory:') {
 }
 
 cds.on('bootstrap', (app) => {
-    app.use(`${UI_PREFIX}/odata`, (req, res) => res.redirect(307, `/odata${req.url}`));
+    for (const name of APPS) {
+        app.use(`/${name}/webapp/odata`, (req, res) => res.redirect(307, `/odata${req.url}`));
+    }
     for (const [route, file] of Object.entries(PAGES)) {
         app.get(route, (req, res) => res.redirect(file));
     }
@@ -37,7 +38,7 @@ const COLUMN_LINE = /^\s+("?)(\w+)\1 (.+?)( NOT NULL)?,?$/;
 
 async function upgradeSqliteSchema(db) {
     const log = cds.log('db');
-    const statements = cds.compile.to.sql(cds.model, { dialect: 'sqlite' });
+    const statements = cds.compile.to.sql(await cds.load('*', { silent: true }), { dialect: 'sqlite' });
     for (const statement of statements) {
         const table = /^CREATE TABLE (\S+) \(/.exec(statement);
         if (table) {
@@ -66,8 +67,8 @@ async function upgradeSqliteSchema(db) {
 }
 
 cds.on('served', async () => {
-    if (!isSqlite) return;
-    await upgradeSqliteSchema(await cds.connect.to('db'));
+    if (isSqlite) await upgradeSqliteSchema(await cds.connect.to('db'));
+    await syncCodeLists();
 });
 
 function describeTranslator() {

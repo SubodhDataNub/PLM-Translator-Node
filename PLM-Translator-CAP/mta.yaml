@@ -48,9 +48,17 @@ modules:
     build-parameters:
       build-result: app/
       requires:
-        - name: dntranslator
+        - name: dntranslations
           artifacts:
-            - translator.zip
+            - translations.zip
+          target-path: app/
+        - name: dnmasstranslation
+          artifacts:
+            - masstranslation.zip
+          target-path: app/
+        - name: dnactivity
+          artifacts:
+            - activity.zip
           target-path: app/
     requires:
       - name: plm-translator-auth
@@ -71,13 +79,35 @@ modules:
             ForwardAuthToken: true
             DynamicDestination: true
 
-  - name: dntranslator
+  - name: dntranslations
     type: html5
-    path: app/translator
+    path: app/translations
     build-parameters:
       builder: custom
       commands:
-        - npm ci
+        - npm install
+        - npm run build
+      build-result: dist
+      supported-platforms: []
+
+  - name: dnmasstranslation
+    type: html5
+    path: app/masstranslation
+    build-parameters:
+      builder: custom
+      commands:
+        - npm install
+        - npm run build
+      build-result: dist
+      supported-platforms: []
+
+  - name: dnactivity
+    type: html5
+    path: app/activity
+    build-parameters:
+      builder: custom
+      commands:
+        - npm install
         - npm run build
       build-result: dist
       supported-platforms: []

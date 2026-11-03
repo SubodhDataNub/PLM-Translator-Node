@@ -1,6 +1,6 @@
 # DN Translator (SAP CAP)
 
-SAP Cloud Application Programming Model (CAP, Node.js) version of DN Translator. It has the same three pages as `PLM-Translator-Node`, built as an SAPUI5 (Fiori) app, and translates with the **same Google Cloud Translation client**. The difference is the backend: the Express routes and Knex are replaced by a CDS data model and an OData V4 service, and data is stored in a local SQLite database.
+SAP Cloud Application Programming Model (CAP, Node.js) version of DN Translator. It covers the same work as `PLM-Translator-Node`, as three SAP Fiori elements apps, and translates with the **same Google Cloud Translation client**. The difference is the backend: the Express routes and Knex are replaced by a CDS data model and an OData V4 service, and data is stored in a local SQLite database.
 
 | Area | Node.js version | CAP version |
 |---|---|---|
@@ -8,7 +8,7 @@ SAP Cloud Application Programming Model (CAP, Node.js) version of DN Translator.
 | Data model | Knex table `test_results` | CDS entity `plm.translator.TestResults` (`db/schema.cds`) |
 | API | REST under `/api/*` | OData V4 under `/odata/v4/translator` (`srv/translator-service.cds`) |
 | Database | SQLite / Azure SQL / PostgreSQL | SQLite (`data/plm_translator.db`) via `@cap-js/sqlite` |
-| Pages | Nunjucks templates | SAPUI5 freestyle app with the Fiori Horizon theme (`app/translator/webapp`) |
+| Pages | Nunjucks templates | Three SAP Fiori elements apps generated from CDS annotations (`app/*`, `srv/annotations.cds`) |
 | Translation | `services/translator.js` | `srv/lib/translator.js`: the same code, unchanged |
 | Terminology | `services/terminology.js` + `Train_Data/` | `srv/lib/terminology.js` + `Train_Data/`: the same code and data |
 
@@ -25,14 +25,13 @@ npm start                 # http://localhost:4004
 
 The SQLite database file `data/plm_translator.db` and its tables are created on first start. Existing data is never dropped. To start again with an empty database, stop the server and delete the file.
 
-The app opens at `http://localhost:4004/`, which redirects to `/translator/webapp/index.html`. Its pages are:
+`http://localhost:4004/` opens a local SAP Fiori launchpad (`app/launchpage.html`) with three tiles:
 
-- `#/`: single translation and review
-- `#/mass-translation`: Excel mass translation. `/mass-translation` and `/mass-translation.html` redirect here.
-- `#/test-results`: saved results with filters and Excel export. Filters and sort are kept in the URL, for example `#/test-results?outcome=Failed&language=fr`. `/test-results` and `/test-results.html` redirect here.
-- `http://localhost:4004/$fiori-preview/TranslatorService/TestResults#preview-app`: a Fiori elements list of the test results, generated from `srv/annotations.cds`
+- **Translations** (`app/translations`): a list report of all test results with filters, tabs per outcome and Excel export. **Create** opens a new test result: enter the text, pick the target language, press **Translate**, fill in the review (outcome, accuracy, observation) and press **Create** to save it.
+- **Mass Translation** (`app/masstranslation`): each run is a record. **Create**, upload the Excel file (the **Template** link gives a sample file), add the target languages and save. Then press **Start Translation**. The page shows the statistics, a downloadable results file and every translated row.
+- **User Activity** (`app/activity`, administrators only): what each user did and when.
 
-The app loads SAPUI5 1.148 (a long-term maintenance release) from the SAP CDN at `ui5.sap.com`, so the browser needs internet access. There is no UI build step. The theme follows the operating system (Horizon or Horizon Dark), and the palette button in the header switches it.
+All three are standard SAP Fiori elements (OData V4) apps. Their screens come from the annotations in `srv/annotations.cds`; there are no custom views, controllers or CSS. They load SAPUI5 1.148 from the SAP CDN at `ui5.sap.com`, so the browser needs internet access, and there is no UI build step when running locally. On SAP BTP each app is deployed to the HTML5 repository and added to SAP Build Work Zone as its own tile, which also provides the theme and user settings.
 
 ## Google Cloud Translation
 
@@ -53,59 +52,43 @@ If the credentials are not allowed to list languages, the built-in language list
 
 ## OData service
 
-Base path: `/odata/v4/translator`
+Base path: `/odata/v4/translator`. The Fiori apps use these entities; any OData V4 client can too.
 
-| Operation | Replaces (Node.js) | Notes |
-|---|---|---|
-| `TestResults` (GET, POST, DELETE, `$filter`, `$orderby`, `$top`, `$skip`, `$count`) | `/api/test-results`, `/api/save-test-results`, `DELETE /api/test-results/:id` | POST validates outcome and accuracy, maps `Failed` → `Failure`, stores the language as `code-Name` |
-| `languages()` | `GET /api/languages` | `[{code, name}]` |
-| `translate(text, targetLanguage, labelType)` | `POST /api/translate` | `labelType`: `auto` (default), `general`, `food`, `cosmetic`, `off` |
-| `userInfo()` | `GET /api/azure-user` | |
-| `resultStatistics(outcome, language, search)` | statistics on the test results page | |
-| `resultLanguages()` | language filter on the test results page | |
-| `exportTestResults(outcome, language, search)` | `GET /api/export-test-results` | returns `{fileName, mimeType, content}` (base64 .xlsx) |
-| `validateFile(fileName, content, targetLanguages)` | `POST /api/validate-large-file` | `content`: base64 .xlsx |
-| `estimateProcessingTime(recordCount, targetLanguages)` | `POST /api/estimate-processing-time` | |
-| `massTranslate(fileName, content, targetLanguages, testedBy, labelType)` | `POST /api/mass-translate` | `content`: base64 .xlsx; returns `sessionId` and statistics |
-| `downloadSessionResults(sessionId)` | `POST /api/download-translation-results` | one row per text, one column per language |
-| `downloadTemplate()` | `GET /api/download-template` | |
+| Entity | Notes |
+|---|---|
+| `TestResults` | Draft-enabled. `translateText` (bound action on a draft) translates `textToTranslate` into `targetLanguage`. Saving validates outcome and accuracy and stores the language as `code-Name`. Users see their own results, administrators see all. |
+| `MassTranslations` | Draft-enabled. `file` is the uploaded Excel file (media property), `languages` the target languages. `start` (bound action) translates every row and fills the statistics and `resultFile`. |
+| `ActivityLog` | Read-only, administrators only. |
+| `Languages`, `Outcomes`, `ActivityTypes` | Value lists. Languages come from Google at startup. |
 
-Examples:
+Example:
 
 ```bash
-curl -X POST localhost:4004/odata/v4/translator/translate \
-     -H "Content-Type: application/json" \
-     -d '{"text":"Keep out of reach of children.","targetLanguage":"fr"}'
-
 curl "localhost:4004/odata/v4/translator/TestResults?\$filter=outcome%20eq%20'Success'&\$orderby=ID%20desc&\$top=10&\$count=true"
 ```
 
-Excel files are sent and returned as base64 inside JSON, so every operation stays a plain OData action or function. The service accepts request bodies up to 300 MB (`@cds.server.body_parser.limit`); uploads are limited to `MAX_UPLOAD_MB` (default 200).
+Uploads are limited to `MAX_UPLOAD_MB` (default 200).
 
 ## Project structure
 
 ```
 package.json                 Dependencies, scripts and CAP config (cds.requires.db → SQLite)
 server.js                    CAP server hooks: create DB tables, page redirects, 30-min request timeout
-db/schema.cds                Data model: TestResults
-srv/translator-service.cds   OData service: entity, types, actions and functions
+db/schema.cds                Data model: test results, mass translations, activity log, value lists
+srv/translator-service.cds   OData service: draft-enabled entities and bound actions
 srv/translator-service.js    Service handlers
-srv/annotations.cds          Fiori elements annotations for TestResults
+srv/annotations.cds          Fiori elements annotations: every list, page, field and value help
 srv/lib/translator.js        Google Cloud Translation client (from the Node.js version)
 srv/lib/terminology.js       Label terminology (from the Node.js version)
 srv/lib/excel.js             Excel read/write helpers (from the Node.js version)
 srv/lib/mass-translation.js  Mass translation, validation, estimates, result workbooks
+srv/lib/code-lists.js        Fills the language, outcome and activity value lists at startup
 srv/lib/utils.js             Helpers
 srv/lib/config.js            Google / batching settings from .env
-app/translator/webapp/       SAPUI5 app (served at /translator/webapp/)
-  index.html                 Bootstrap: SAPUI5 from the SAP CDN, theme picked before start
-  manifest.json              App descriptor: OData V4 model, routes, libraries
-  Component.js               Loads the target languages once for all pages
-  view/, controller/         App shell, Translate, MassTranslation, TestResults (+ dialogs)
-  model/api.js               Calls the service actions and functions (Excel files as base64)
-  model/formatter.js         Outcome, accuracy and date formatting for the results
-  i18n/i18n.properties       All UI texts
-  css/style.css              Small additions to the Horizon theme
+app/launchpage.html          Local Fiori launchpad with the three tiles
+app/translations/            Fiori elements app: test results and single translation
+app/masstranslation/         Fiori elements app: mass translation runs
+app/activity/                Fiori elements app: user activity
 Train_Data/                  Terminology database
 ```
 
@@ -113,5 +96,5 @@ Train_Data/                  Terminology database
 
 - **Database.** Only SQLite is configured. To use another database, change `cds.requires.db` in `package.json`, for example to `@cap-js/postgres` or `@cap-js/hana`.
 - **IDs.** Test result IDs are sequential integers, assigned by the service in a single server process.
-- **Mass translation.** The Node.js version has unused background and chunked processing code (`/api/translation-progress`); it is not ported. Mass translation runs in the request, as the Node.js page already did.
+- **Mass translation.** The Node.js version has unused background and chunked processing code (`/api/translation-progress`); it is not ported. **Start Translation** runs in the request, as the Node.js page already did.
 - **Port.** The app runs on 4004 (CAP's default), so it can run next to the Node.js app on 5000.
