@@ -33,6 +33,27 @@ The SQLite database file `data/plm_translator.db` and its tables are created on 
 
 All three are standard SAP Fiori elements (OData V4) apps. Their screens come from the annotations in `srv/annotations.cds`; there are no custom views, controllers or CSS. They load SAPUI5 1.148 from the SAP CDN at `ui5.sap.com`, so the browser needs internet access, and there is no UI build step when running locally. On SAP BTP each app is deployed to the HTML5 repository and added to SAP Build Work Zone as its own tile, which also provides the theme and user settings.
 
+## Deploying to SAP BTP
+
+Pushing to GitHub does not deploy anything. Deploying is a separate, manual step from your machine.
+
+You need the Cloud Foundry CLI with the MultiApps plugin (`cf deploy`). Log in once per session:
+
+```bash
+cf login -a <API endpoint of your subaccount>    # then pick the org and the space
+```
+
+Then, from `PLM-Translator-CAP`:
+
+1. **Make sure SAP HANA Cloud is running.** Trial instances stop every night. Start it in SAP HANA Cloud Central (or with `cf update-service <hana instance> -c '{"data":{"serviceStopped":false}}'`) and wait until it shows **Running**. Deploying while it is stopped fails at the database step.
+2. **Build:** `npm run build:cf`. This writes `mta_archives/plm-translator-cap_1.0.0.mtar` (about 2 minutes).
+3. **Deploy:** `npm run deploy:cf` (about 3 minutes).
+4. **Check:** open the site in SAP Build Work Zone in a fresh private window. New app versions are picked up automatically. Only when you add or rename an app, refresh the **HTML5 Apps** content provider in the Work Zone Channel Manager.
+
+`npm run build:cf` runs `scripts/build-mtar.js`. It reads `mta.yaml` and does what `mbt build` does with Node.js and the system `tar` only: the CDS build, the three UI5 builds, the module installs, `META-INF/mtad.yaml` and the archive. Windows Smart App Control blocks the unsigned `mbt.exe`, which is why this script exists. Where `mbt` runs (Linux, CI, WSL), `npm run build:mbt` builds the same archive.
+
+To watch the server while you test, use `cf logs plm-translator-srv`. On trial accounts `cf logs --recent` often returns nothing, so stream the logs live instead.
+
 ## Google Cloud Translation
 
 Configuration works exactly as in the Node.js version, with the same environment variables in `.env`. See `PLM-Translator-Node/README.md` for how to create the credentials.

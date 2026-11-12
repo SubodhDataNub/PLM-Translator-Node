@@ -10,7 +10,8 @@
     "start": "cds-serve",
     "watch": "cds watch",
     "deploy:db": "cds deploy --to sqlite",
-    "build:cf": "mbt build",
+    "build:cf": "node scripts/build-mtar.js",
+    "build:mbt": "mbt build",
     "deploy:cf": "cf deploy mta_archives/plm-translator-cap_1.0.0.mtar"
   },
   "dependencies": {
@@ -27,7 +28,8 @@
     "@cap-js/sqlite": "^3.1.2",
     "@sap/cds-dk": "^10.2.0",
     "@sap/eslint-plugin-cds": "^4",
-    "eslint": "^10"
+    "eslint": "^10",
+    "yaml": "^2.9.1"
   },
   "overrides": {
     "exceljs": {

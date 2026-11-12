@@ -13,6 +13,10 @@ export default [
     ]
   },
   {
+    files: ['scripts/**/*.js'],
+    rules: { 'no-console': 'off' }
+  },
+  {
     files: ['app/**/*.js'],
     languageOptions: {
       globals: {
