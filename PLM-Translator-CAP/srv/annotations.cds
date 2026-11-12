@@ -6,7 +6,7 @@ annotate TranslatorService.TestResults with @(
   UI.HeaderInfo          : {
     TypeName       : 'Test Result',
     TypeNamePlural : 'Test Results',
-    Title          : { Value: textToTranslate },
+    Title          : { Value: ID },
     Description    : { Value: targetLanguage }
   },
   UI.SelectionFields     : [ outcome, targetLanguage, testedBy, createdAt, sessionId ],
@@ -23,39 +23,7 @@ annotate TranslatorService.TestResults with @(
     Visualizations : [ '@UI.LineItem' ],
     SortOrder      : [ { Property: createdAt, Descending: true } ]
   },
-  UI.SelectionPresentationVariant #All     : {
-    Text                : 'All',
-    SelectionVariant    : { SelectOptions: [] },
-    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: createdAt, Descending: true } ] }
-  },
-  UI.SelectionPresentationVariant #Success : {
-    Text                : 'Successful',
-    SelectionVariant    : { SelectOptions: [{
-      PropertyName : outcome,
-      Ranges       : [{ Sign: #I, Option: #EQ, Low: 'Success' }]
-    }] },
-    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: createdAt, Descending: true } ] }
-  },
-  UI.SelectionPresentationVariant #Partial : {
-    Text                : 'Partial',
-    SelectionVariant    : { SelectOptions: [{
-      PropertyName : outcome,
-      Ranges       : [{ Sign: #I, Option: #EQ, Low: 'Partial' }]
-    }] },
-    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: createdAt, Descending: true } ] }
-  },
-  UI.SelectionPresentationVariant #Failed  : {
-    Text                : 'Failed',
-    SelectionVariant    : { SelectOptions: [{
-      PropertyName : outcome,
-      Ranges       : [
-        { Sign: #I, Option: #EQ, Low: 'Failure' },
-        { Sign: #I, Option: #EQ, Low: 'Failed' }
-      ]
-    }] },
-    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: createdAt, Descending: true } ] }
-  },
-  UI.Facets              : [
+  UI.Facets             : [
     { $Type: 'UI.ReferenceFacet', ID: 'Translation', Label: 'Translation', Target: '@UI.FieldGroup#Translation' },
     { $Type: 'UI.ReferenceFacet', ID: 'Review', Label: 'Review', Target: '@UI.FieldGroup#Review' },
     { $Type: 'UI.ReferenceFacet', ID: 'Admin', Label: 'Record', Target: '@UI.FieldGroup#Record' }
@@ -87,8 +55,8 @@ annotate TranslatorService.TestResults with @(
     { Value: modifiedBy }
   ]}
 ) {
-  ID              @UI.Hidden;
-  outcome         @title: 'Outcome' @mandatory
+  ID              @title: 'Translation ID';
+  outcome        @title: 'Outcome' @mandatory
                   @Common.Text: outcomeInfo.name @Common.TextArrangement: #TextOnly
                   @Common.ValueListWithFixedValues
                   @Common.ValueList: {

@@ -113,27 +113,6 @@
                     "selectionMode": "None"
                   }
                 }
-              },
-              "views": {
-                "paths": [
-                  {
-                    "key": "All",
-                    "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#All"
-                  },
-                  {
-                    "key": "Success",
-                    "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Success"
-                  },
-                  {
-                    "key": "Partial",
-                    "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Partial"
-                  },
-                  {
-                    "key": "Failed",
-                    "annotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Failed"
-                  }
-                ],
-                "showCounts": true
               }
             }
           }

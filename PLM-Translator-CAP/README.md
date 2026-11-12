@@ -27,7 +27,7 @@ The SQLite database file `data/plm_translator.db` and its tables are created on 
 
 `http://localhost:4004/` opens a local SAP Fiori launchpad (`app/launchpage.html`) with three tiles:
 
-- **Translations** (`app/translations`): a list report of all test results with filters, tabs per outcome and Excel export. **Create** opens a new test result: enter the text, pick the target language, press **Translate**, fill in the review (outcome, accuracy, observation) and press **Create** to save it.
+- **Translations** (`app/translations`): a list report of all test results with filters (outcome, language, tester, date, session) and Excel export. **Create** opens a new test result: enter the text, pick the target language, press **Translate**, fill in the review (outcome, accuracy, observation) and press **Create** to save it.
 - **Mass Translation** (`app/masstranslation`): each run is a record. **Create**, upload the Excel file (the **Template** link gives a sample file), add the target languages and save. Then press **Start Translation**. The page shows the statistics, a downloadable results file and every translated row; click a row to open it. A completed run can no longer be edited.
 - **User Activity** (`app/activity`, administrators only): what each user did and when. Click an entry for its details and the translations it produced, then a translation to open it.
 
