@@ -87,6 +87,11 @@
           "pattern": "MassTranslations({key}):?query:",
           "name": "MassTranslationsObjectPage",
           "target": "MassTranslationsObjectPage"
+        },
+        {
+          "pattern": "MassTranslations({key})/results({key2}):?query:",
+          "name": "TestResultsObjectPage",
+          "target": "TestResultsObjectPage"
         }
       ],
       "targets": {
@@ -131,7 +136,25 @@
                     "type": "ResponsiveTable"
                   }
                 }
+              },
+              "navigation": {
+                "results": {
+                  "detail": {
+                    "route": "TestResultsObjectPage"
+                  }
+                }
               }
+            }
+          }
+        },
+        "TestResultsObjectPage": {
+          "type": "Component",
+          "id": "TestResultsObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "contextPath": "/MassTranslations/results",
+              "editableHeaderContent": false
             }
           }
         }

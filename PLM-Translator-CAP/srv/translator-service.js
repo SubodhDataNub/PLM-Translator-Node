@@ -267,6 +267,13 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             req.data.status = 'New';
         });
 
+        this.before('EDIT', MassTranslations, async (req) => {
+            const job = await SELECT.one.from(req.subject).columns('status');
+            if (job && job.status !== 'New') {
+                return req.reject(409, 'This mass translation has already run and can no longer be changed. Create a new one instead.');
+            }
+        });
+
         this.on('start', async (req) => {
             const job = await SELECT.one.from(req.subject).columns('ID', 'status', 'fileName', 'file', 'testedBy');
             if (!job) return req.reject(404, 'Mass translation not found');

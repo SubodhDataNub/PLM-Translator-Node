@@ -64,7 +64,12 @@ annotate TranslatorService.TestResults with @(
   UI.FieldGroup #Translation : { Data: [
     { Value: textToTranslate },
     { Value: targetLanguage },
-    { $Type: 'UI.DataFieldForAction', Action: 'TranslatorService.translateText', Label: 'Translate' },
+    {
+      $Type        : 'UI.DataFieldForAction',
+      Action       : 'TranslatorService.translateText',
+      Label        : 'Translate',
+      ![@UI.Hidden]: { $edmJson: { $Path: 'IsActiveEntity' } }
+    },
     { Value: translatedText },
     { Value: sourceLanguage },
     { Value: terminologyNote }
@@ -115,8 +120,7 @@ annotate TranslatorService.TestResults with @(
 };
 
 annotate TranslatorService.MassTranslations with @(
-  UI.UpdateHidden        : { $edmJson: { $Eq: [ { $Path: 'status' }, 'Completed' ] } },
-  UI.HeaderInfo          : {
+  UI.HeaderInfo         : {
     TypeName       : 'Mass Translation',
     TypeNamePlural : 'Mass Translations',
     Title          : { Value: fileName },
@@ -222,8 +226,33 @@ annotate TranslatorService.ActivityLog with @(
   UI.PresentationVariant : {
     Visualizations : [ '@UI.LineItem' ],
     SortOrder      : [ { Property: createdAt, Descending: true } ]
-  }
+  },
+  UI.HeaderFacets        : [
+    { $Type: 'UI.ReferenceFacet', Target: '@UI.FieldGroup#Who' }
+  ],
+  UI.FieldGroup #Who     : { Data: [
+    { Value: userName },
+    { Value: createdAt }
+  ]},
+  UI.Facets              : [
+    { $Type: 'UI.ReferenceFacet', ID: 'Details', Label: 'Details', Target: '@UI.FieldGroup#Details' },
+    {
+      $Type        : 'UI.ReferenceFacet',
+      ID           : 'Translations',
+      Label        : 'Translations',
+      Target       : 'results/@UI.LineItem',
+      ![@UI.Hidden]: { $edmJson: { $Eq: [ { $Path: 'sessionId' }, { $Null: null } ] } }
+    }
+  ],
+  UI.FieldGroup #Details : { Data: [
+    { Value: activity },
+    { Value: details },
+    { Value: language },
+    { Value: itemCount },
+    { Value: sessionId }
+  ]}
 ) {
+  ID        @UI.Hidden;
   createdAt @title: 'Time';
   userName  @title: 'User';
   activity  @title: 'Activity'

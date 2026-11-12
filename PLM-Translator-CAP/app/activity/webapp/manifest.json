@@ -82,6 +82,16 @@
           "pattern": ":?query:",
           "name": "ActivityLogList",
           "target": "ActivityLogList"
+        },
+        {
+          "pattern": "ActivityLog({key}):?query:",
+          "name": "ActivityLogObjectPage",
+          "target": "ActivityLogObjectPage"
+        },
+        {
+          "pattern": "ActivityLog({key})/results({key2}):?query:",
+          "name": "TestResultsObjectPage",
+          "target": "TestResultsObjectPage"
         }
       ],
       "targets": {
@@ -94,7 +104,13 @@
               "contextPath": "/ActivityLog",
               "variantManagement": "Page",
               "initialLoad": "Enabled",
-              "navigation": {},
+              "navigation": {
+                "ActivityLog": {
+                  "detail": {
+                    "route": "ActivityLogObjectPage"
+                  }
+                }
+              },
               "controlConfiguration": {
                 "@com.sap.vocabularies.UI.v1.LineItem": {
                   "tableSettings": {
@@ -103,6 +119,42 @@
                   }
                 }
               }
+            }
+          }
+        },
+        "ActivityLogObjectPage": {
+          "type": "Component",
+          "id": "ActivityLogObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "contextPath": "/ActivityLog",
+              "editableHeaderContent": false,
+              "navigation": {
+                "results": {
+                  "detail": {
+                    "route": "TestResultsObjectPage"
+                  }
+                }
+              },
+              "controlConfiguration": {
+                "results/@com.sap.vocabularies.UI.v1.LineItem": {
+                  "tableSettings": {
+                    "type": "ResponsiveTable"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "TestResultsObjectPage": {
+          "type": "Component",
+          "id": "TestResultsObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "contextPath": "/ActivityLog/results",
+              "editableHeaderContent": false
             }
           }
         }

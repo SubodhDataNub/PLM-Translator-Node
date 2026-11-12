@@ -28,6 +28,7 @@ entity ActivityLog : cuid {
   itemCount    : Integer;
   sessionId    : String(100);
   activityInfo : Association to ActivityTypes on activityInfo.code = activity;
+  results      : Association to many TestResults on results.sessionId = sessionId;
 }
 
 entity MassTranslations : cuid, managed {
