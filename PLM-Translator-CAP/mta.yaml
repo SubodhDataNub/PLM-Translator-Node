@@ -18,9 +18,11 @@ modules:
     path: gen/srv
     parameters:
       instances: 1
-      memory: 1024M
+      memory: 2048M
       disk-quota: 1024M
       buildpack: nodejs_buildpack
+    properties:
+      NODE_OPTIONS: "--max-old-space-size=1536"
     build-parameters:
       builder: npm-ci
     provides:
@@ -62,22 +64,11 @@ modules:
           target-path: app/
     requires:
       - name: plm-translator-auth
-      - name: srv-api
       - name: plm-translator-html5-host
         parameters:
           content-target: true
           config:
             HTML5Runtime_enabled: true
-    parameters:
-      config:
-        destinations:
-          - Name: srv-api
-            URL: ~{srv-api/srv-url}
-            Authentication: NoAuthentication
-            Type: HTTP
-            ProxyType: Internet
-            ForwardAuthToken: true
-            DynamicDestination: true
 
   - name: dntranslations
     type: html5
@@ -157,11 +148,24 @@ resources:
     type: org.cloudfoundry.existing-service
   - name: plm-translator-destination
     type: org.cloudfoundry.managed-service
+    requires:
+      - name: srv-api
     parameters:
       service: destination
       service-plan: lite
       config:
         HTML5Runtime_enabled: true
+        init_data:
+          instance:
+            existing_destinations_policy: update
+            destinations:
+              - Name: srv-api
+                URL: ~{srv-api/srv-url}
+                Authentication: NoAuthentication
+                Type: HTTP
+                ProxyType: Internet
+                HTML5.ForwardAuthToken: true
+                HTML5.DynamicDestination: true
   - name: plm-translator-html5-host
     type: org.cloudfoundry.managed-service
     parameters:
