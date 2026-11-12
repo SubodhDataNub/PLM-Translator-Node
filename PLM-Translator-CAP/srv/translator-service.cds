@@ -30,7 +30,8 @@ service TranslatorService {
   ]
   entity MassTranslations as projection on db.MassTranslations {
     *,
-    virtual null as estimatedTime : String(100)
+    virtual null as estimatedTime : String(100),
+    virtual null as editLocked    : Boolean
   } actions {
     @Core.OperationAvailable: { $edmJson: { $And: [
       { $Path: 'in/IsActiveEntity' },

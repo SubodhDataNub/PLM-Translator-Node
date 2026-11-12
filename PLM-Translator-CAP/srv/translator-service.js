@@ -257,8 +257,20 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             }
         };
 
-        this.after('READ', MassTranslations,
-            (rows, req) => addEstimates(rows, req, MassTranslations, MassTranslationLanguages));
+        const selects = (columns, name) => !columns || columns.some((col) => col === '*' || (col.ref && col.ref[0] === name));
+
+        this.before('READ', MassTranslations, (req) => {
+            const columns = req.query.SELECT && req.query.SELECT.columns;
+            if (columns && selects(columns, 'editLocked') && !selects(columns, 'status')) columns.push({ ref: ['status'] });
+        });
+
+        this.after('READ', MassTranslations, async (rows, req) => {
+            await addEstimates(rows, req, MassTranslations, MassTranslationLanguages);
+            if (!selects(req.query.SELECT && req.query.SELECT.columns, 'editLocked')) return;
+            for (const row of Array.isArray(rows) ? rows : [rows]) {
+                if (row && row.status !== undefined) row.editLocked = Boolean(row.status) && row.status !== 'New';
+            }
+        });
         this.after('READ', MassTranslations.drafts,
             (rows, req) => addEstimates(rows, req, MassTranslations.drafts, MassTranslationLanguages.drafts));
 

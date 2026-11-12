@@ -120,6 +120,7 @@ annotate TranslatorService.TestResults with @(
 };
 
 annotate TranslatorService.MassTranslations with @(
+  UI.UpdateHidden       : editLocked,
   UI.HeaderInfo         : {
     TypeName       : 'Mass Translation',
     TypeNamePlural : 'Mass Translations',
@@ -128,14 +129,14 @@ annotate TranslatorService.MassTranslations with @(
   },
   UI.SelectionFields     : [ status, testedBy, createdAt ],
   UI.LineItem            : [
-    { Value: fileName },
-    { Value: status },
-    { Value: totalRows },
-    { Value: successful },
-    { Value: failed },
-    { Value: successRate },
-    { Value: testedBy },
-    { Value: createdAt }
+    { Value: fileName, ![@HTML5.CssDefaults]: { width: 'auto' }, ![@UI.Importance]: #High },
+    { Value: status, ![@HTML5.CssDefaults]: { width: '7rem' }, ![@UI.Importance]: #High },
+    { Value: totalRows, ![@HTML5.CssDefaults]: { width: '5rem' } },
+    { Value: successful, ![@HTML5.CssDefaults]: { width: '6.5rem' } },
+    { Value: failed, ![@HTML5.CssDefaults]: { width: '5rem' } },
+    { Value: successRate, ![@HTML5.CssDefaults]: { width: '8.5rem' } },
+    { Value: testedBy, ![@HTML5.CssDefaults]: { width: '13rem' } },
+    { Value: createdAt, ![@HTML5.CssDefaults]: { width: '11rem' } }
   ],
   UI.PresentationVariant : {
     Visualizations : [ '@UI.LineItem' ],
@@ -183,6 +184,7 @@ annotate TranslatorService.MassTranslations with @(
   totalRows      @title: 'Rows' @readonly;
   textColumn     @title: 'Text Column' @readonly;
   estimatedTime  @title: 'Estimated Time';
+  editLocked     @UI.Hidden;
   sessionId      @title: 'Session ID' @readonly;
   successful     @title: 'Successful' @readonly;
   failed         @title: 'Failed' @readonly;
