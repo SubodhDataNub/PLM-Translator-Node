@@ -116,6 +116,6 @@ Train_Data/                  Terminology database
 ## Differences from the Node.js version
 
 - **Database.** Only SQLite is configured. To use another database, change `cds.requires.db` in `package.json`, for example to `@cap-js/postgres` or `@cap-js/hana`.
-- **IDs.** Test result IDs are sequential integers, assigned by the service in a single server process.
+- **Data model.** Entities use the reusable aspects from `@sap/cds/common`: `cuid` (UUID keys) and `managed` (`createdAt`, `createdBy`, `modifiedAt`, `modifiedBy`, filled in automatically) for test results, mass translations and user activity, and `sap.common.CodeList` for the languages, outcomes and activity types. Test results therefore have UUIDs instead of the Node.js version's sequential numbers, and lists sort by creation date. Databases created before this change are migrated on startup (`srv/lib/migrations.js`; on SQLite, `server.js` rebuilds tables whose key type changed).
 - **Mass translation.** The Node.js version has unused background and chunked processing code (`/api/translation-progress`); it is not ported. **Start Translation** runs in the request, as the Node.js page already did.
 - **Port.** The app runs on 4004 (CAP's default), so it can run next to the Node.js app on 5000.

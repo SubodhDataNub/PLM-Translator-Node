@@ -6,6 +6,7 @@ const cds = require('@sap/cds');
 const { translatorService } = require('./srv/lib/translator');
 const { terminology } = require('./srv/lib/terminology');
 const { syncCodeLists } = require('./srv/lib/code-lists');
+const { migrateData } = require('./srv/lib/migrations');
 
 const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -35,6 +36,36 @@ cds.on('bootstrap', (app) => {
 });
 
 const COLUMN_LINE = /^\s+("?)(\w+)\1 (.+?)( NOT NULL)?,?$/;
+const PRIMARY_KEY_LINE = /^\s*PRIMARY KEY\((.+)\)/;
+
+function parseColumns(statement) {
+    const columns = new Map();
+    let keys = [];
+    for (const line of statement.split('\n').slice(1)) {
+        const primaryKey = PRIMARY_KEY_LINE.exec(line);
+        if (primaryKey) {
+            keys = primaryKey[1].split(',').map((key) => key.trim().replace(/"/g, '').toLowerCase());
+            continue;
+        }
+        const column = COLUMN_LINE.exec(line);
+        if (column) columns.set(column[2].toLowerCase(), column[3].split(' ')[0].toUpperCase());
+    }
+    return { columns, keys };
+}
+
+async function rebuildTable(db, name, statement, existing) {
+    const { columns } = parseColumns(statement);
+    const shared = [...columns.keys()].filter((column) => existing.has(column)).join(', ');
+    await db.run('PRAGMA legacy_alter_table = ON');
+    try {
+        await db.run(`ALTER TABLE ${name} RENAME TO ${name}__old`);
+        await db.run(statement);
+        await db.run(`INSERT INTO ${name} (${shared}) SELECT ${shared} FROM ${name}__old`);
+        await db.run(`DROP TABLE ${name}__old`);
+    } finally {
+        await db.run('PRAGMA legacy_alter_table = OFF');
+    }
+}
 
 async function upgradeSqliteSchema(db) {
     const log = cds.log('db');
@@ -47,6 +78,16 @@ async function upgradeSqliteSchema(db) {
             if (!columns.length) {
                 log.info(`Creating table ${name}`);
                 await db.run(statement);
+                continue;
+            }
+            const target = parseColumns(statement);
+            const keyChanged = target.keys.some((key) => {
+                const current = columns.find((column) => column.name.toLowerCase() === key);
+                return !current || !current.pk || current.type.toUpperCase() !== target.columns.get(key);
+            });
+            if (keyChanged) {
+                log.info(`Rebuilding table ${name} for its new key`);
+                await rebuildTable(db, name, statement, new Map(columns.map((column) => [column.name.toLowerCase(), column.type])));
                 continue;
             }
             const existing = new Set(columns.map((column) => column.name.toLowerCase()));
@@ -68,6 +109,7 @@ async function upgradeSqliteSchema(db) {
 
 cds.on('served', async () => {
     if (isSqlite) await upgradeSqliteSchema(await cds.connect.to('db'));
+    await migrateData();
     await syncCodeLists();
 });
 

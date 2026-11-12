@@ -11,7 +11,6 @@ annotate TranslatorService.TestResults with @(
   },
   UI.SelectionFields     : [ outcome, targetLanguage, testedBy, createdAt, sessionId ],
   UI.LineItem            : [
-    { Value: ID },
     { Value: outcome, Criticality: outcomeInfo.criticality },
     { Value: accuracy },
     { Value: targetLanguage },
@@ -22,12 +21,12 @@ annotate TranslatorService.TestResults with @(
   ],
   UI.PresentationVariant : {
     Visualizations : [ '@UI.LineItem' ],
-    SortOrder      : [ { Property: ID, Descending: true } ]
+    SortOrder      : [ { Property: createdAt, Descending: true } ]
   },
   UI.SelectionPresentationVariant #All     : {
     Text                : 'All',
     SelectionVariant    : { SelectOptions: [] },
-    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: ID, Descending: true } ] }
+    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: createdAt, Descending: true } ] }
   },
   UI.SelectionPresentationVariant #Success : {
     Text                : 'Successful',
@@ -35,7 +34,7 @@ annotate TranslatorService.TestResults with @(
       PropertyName : outcome,
       Ranges       : [{ Sign: #I, Option: #EQ, Low: 'Success' }]
     }] },
-    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: ID, Descending: true } ] }
+    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: createdAt, Descending: true } ] }
   },
   UI.SelectionPresentationVariant #Partial : {
     Text                : 'Partial',
@@ -43,7 +42,7 @@ annotate TranslatorService.TestResults with @(
       PropertyName : outcome,
       Ranges       : [{ Sign: #I, Option: #EQ, Low: 'Partial' }]
     }] },
-    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: ID, Descending: true } ] }
+    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: createdAt, Descending: true } ] }
   },
   UI.SelectionPresentationVariant #Failed  : {
     Text                : 'Failed',
@@ -54,7 +53,7 @@ annotate TranslatorService.TestResults with @(
         { Sign: #I, Option: #EQ, Low: 'Failed' }
       ]
     }] },
-    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: ID, Descending: true } ] }
+    PresentationVariant : { Visualizations: [ '@UI.LineItem' ], SortOrder: [ { Property: createdAt, Descending: true } ] }
   },
   UI.Facets              : [
     { $Type: 'UI.ReferenceFacet', ID: 'Translation', Label: 'Translation', Target: '@UI.FieldGroup#Translation' },
@@ -68,7 +67,7 @@ annotate TranslatorService.TestResults with @(
       $Type        : 'UI.DataFieldForAction',
       Action       : 'TranslatorService.translateText',
       Label        : 'Translate',
-      ![@UI.Hidden]: { $edmJson: { $Path: 'IsActiveEntity' } }
+      @UI.Hidden: { $edmJson: { $Path: 'IsActiveEntity' } }
     },
     { Value: translatedText },
     { Value: sourceLanguage },
@@ -81,13 +80,14 @@ annotate TranslatorService.TestResults with @(
     { Value: testedBy }
   ]},
   UI.FieldGroup #Record  : { Data: [
-    { Value: ID },
     { Value: sessionId },
     { Value: createdAt },
-    { Value: createdBy }
+    { Value: createdBy },
+    { Value: modifiedAt },
+    { Value: modifiedBy }
   ]}
 ) {
-  ID              @title: 'ID' @readonly;
+  ID              @UI.Hidden;
   outcome         @title: 'Outcome' @mandatory
                   @Common.Text: outcomeInfo.name @Common.TextArrangement: #TextOnly
                   @Common.ValueListWithFixedValues
@@ -115,8 +115,10 @@ annotate TranslatorService.TestResults with @(
                     ]
                   };
   sessionId       @title: 'Session ID' @readonly;
-  createdAt       @title: 'Date Created' @readonly;
+  createdAt       @title: 'Date Created';
   createdBy       @title: 'Created By';
+  modifiedAt      @title: 'Last Changed';
+  modifiedBy      @title: 'Last Changed By';
 };
 
 annotate TranslatorService.MassTranslations with @(
@@ -129,14 +131,14 @@ annotate TranslatorService.MassTranslations with @(
   },
   UI.SelectionFields     : [ status, testedBy, createdAt ],
   UI.LineItem            : [
-    { Value: fileName, ![@HTML5.CssDefaults]: { width: 'auto' }, ![@UI.Importance]: #High },
-    { Value: status, ![@HTML5.CssDefaults]: { width: '7rem' }, ![@UI.Importance]: #High },
-    { Value: totalRows, ![@HTML5.CssDefaults]: { width: '5rem' } },
-    { Value: successful, ![@HTML5.CssDefaults]: { width: '6.5rem' } },
-    { Value: failed, ![@HTML5.CssDefaults]: { width: '5rem' } },
-    { Value: successRate, ![@HTML5.CssDefaults]: { width: '8.5rem' } },
-    { Value: testedBy, ![@HTML5.CssDefaults]: { width: '13rem' } },
-    { Value: createdAt, ![@HTML5.CssDefaults]: { width: '11rem' } }
+    { Value: fileName, @HTML5.CssDefaults: { width: 'auto' }, @UI.Importance: #High },
+    { Value: status, @HTML5.CssDefaults: { width: '7rem' }, @UI.Importance: #High },
+    { Value: totalRows, @HTML5.CssDefaults: { width: '5rem' } },
+    { Value: successful, @HTML5.CssDefaults: { width: '6.5rem' } },
+    { Value: failed, @HTML5.CssDefaults: { width: '5rem' } },
+    { Value: successRate, @HTML5.CssDefaults: { width: '8.5rem' } },
+    { Value: testedBy, @HTML5.CssDefaults: { width: '13rem' } },
+    { Value: createdAt, @HTML5.CssDefaults: { width: '11rem' } }
   ],
   UI.PresentationVariant : {
     Visualizations : [ '@UI.LineItem' ],
@@ -216,10 +218,10 @@ annotate TranslatorService.ActivityLog with @(
     TypeNamePlural : 'User Activity',
     Title          : { Value: activity }
   },
-  UI.SelectionFields     : [ userName, activity, createdAt ],
+  UI.SelectionFields     : [ createdBy, activity, createdAt ],
   UI.LineItem            : [
     { Value: createdAt },
-    { Value: userName },
+    { Value: createdBy },
     { Value: activity },
     { Value: details },
     { Value: language },
@@ -233,7 +235,7 @@ annotate TranslatorService.ActivityLog with @(
     { $Type: 'UI.ReferenceFacet', Target: '@UI.FieldGroup#Who' }
   ],
   UI.FieldGroup #Who     : { Data: [
-    { Value: userName },
+    { Value: createdBy },
     { Value: createdAt }
   ]},
   UI.Facets              : [
@@ -243,7 +245,7 @@ annotate TranslatorService.ActivityLog with @(
       ID           : 'Translations',
       Label        : 'Translations',
       Target       : 'results/@UI.LineItem',
-      ![@UI.Hidden]: { $edmJson: { $Eq: [ { $Path: 'sessionId' }, { $Null: null } ] } }
+      @UI.Hidden: { $edmJson: { $Eq: [ { $Path: 'sessionId' }, { $Null: null } ] } }
     }
   ],
   UI.FieldGroup #Details : { Data: [
@@ -256,7 +258,7 @@ annotate TranslatorService.ActivityLog with @(
 ) {
   ID        @UI.Hidden;
   createdAt @title: 'Time';
-  userName  @title: 'User';
+  createdBy @title: 'User';
   activity  @title: 'Activity'
             @Common.Text: activityInfo.name @Common.TextArrangement: #TextOnly
             @Common.ValueListWithFixedValues

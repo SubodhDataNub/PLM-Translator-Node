@@ -12,10 +12,7 @@ service TranslatorService {
     { grant: 'READ', to: 'User', where: 'createdBy = $user' },
     { grant: ['CREATE', 'translateText'], to: 'User' }
   ]
-  entity TestResults as projection on db.TestResults {
-    *,
-    createdBy @readonly
-  } actions {
+  entity TestResults as projection on db.TestResults actions {
     @Core.OperationAvailable: { $edmJson: { $Not: { $Path: 'in/IsActiveEntity' } } }
     @Common.SideEffects: { TargetProperties: ['in/translatedText', 'in/sourceLanguage', 'in/terminologyNote'] }
     action translateText();
@@ -48,7 +45,7 @@ service TranslatorService {
 
   @readonly
   @restrict: [{ grant: 'READ', to: 'Admin' }]
-  @cds.search: { userName, activity, details }
+  @cds.search: { createdBy, activity, details }
   entity ActivityLog as projection on db.ActivityLog;
 
   @readonly

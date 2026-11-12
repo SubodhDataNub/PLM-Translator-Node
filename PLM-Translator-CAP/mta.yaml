@@ -21,6 +21,8 @@ modules:
       memory: 2048M
       disk-quota: 1024M
       buildpack: nodejs_buildpack
+      deployed-after:
+        - plm-translator-db-deployer
     properties:
       NODE_OPTIONS: "--max-old-space-size=1536"
     build-parameters:

@@ -83,31 +83,12 @@ module.exports = class TranslatorService extends cds.ApplicationService {
         const { TestResults, MassTranslations, MassTranslationLanguages } = this.entities;
         const db = cds.entities('plm.translator');
 
-        let nextId = null;
-        let idInit = null;
-        const allocateIds = async (count) => {
-            if (nextId === null) {
-                idInit ??= Promise.all([
-                    SELECT.one.from(db.TestResults).columns('max(ID) as maxId'),
-                    SELECT.one.from(TestResults.drafts).columns('max(ID) as maxId')
-                ]).then((rows) => {
-                    nextId ??= Math.max(0, ...rows.map((row) => (row && row.maxId) || 0)) + 1;
-                });
-                await idInit;
-            }
-            const first = nextId;
-            nextId += count;
-            return first;
-        };
-
         const insertResults = async (records) => {
-            if (!records.length) return;
-            const firstId = await allocateIds(records.length);
-            const now = new Date().toISOString();
-            const rows = records.map((record, i) => ({ ID: firstId + i, createdAt: now, ...record }));
+            const rows = records.map((record) => ({ ID: cds.utils.uuid(), ...record }));
             for (let i = 0; i < rows.length; i += INSERT_CHUNK_SIZE) {
                 await INSERT.into(db.TestResults).entries(rows.slice(i, i + INSERT_CHUNK_SIZE));
             }
+            return rows;
         };
 
         const languageList = () => translatorService.getSupportedLanguages();
@@ -116,7 +97,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             try {
                 await INSERT.into(db.ActivityLog).entries({
                     ...fields,
-                    userName: userId(req),
                     activity: action,
                     details: truncate(fields.details, 1000),
                     language: fields.language ? truncate(fields.language, 100) : null
@@ -128,8 +108,7 @@ module.exports = class TranslatorService extends cds.ApplicationService {
 
         // Single translation: a draft test result that is translated, reviewed and saved
 
-        this.before('NEW', TestResults.drafts, async (req) => {
-            req.data.ID = await allocateIds(1);
+        this.before('NEW', TestResults.drafts, (req) => {
             req.data.testedBy ??= defaultTestedBy(req);
         });
 
@@ -161,7 +140,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
 
         this.before('CREATE', TestResults, async (req) => {
             const data = req.data;
-            data.createdBy = userId(req);
             if (isXsuaa()) data.testedBy = truncate(userId(req), 100);
             if (!data.outcome) return req.reject(400, 'Outcome is required');
             if (data.outcome === 'Failed') data.outcome = 'Failure';
@@ -182,13 +160,12 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             data.sourceLanguage ??= 'auto';
             data.sessionId ??= crypto.randomUUID();
             data.targetLanguage = formatTargetLanguage(data.targetLanguage, await languageList());
-            data.ID ??= await allocateIds(1);
         });
 
         this.after('CREATE', TestResults, async (result, req) => {
             const data = req.data;
             await logActivity(req, 'save', {
-                details: `Saved result #${data.ID} (${data.outcome})`,
+                details: `Saved result (${data.outcome})`,
                 language: data.targetLanguage,
                 itemCount: 1,
                 sessionId: data.sessionId
@@ -314,6 +291,7 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             const texts = textsData.map((item) => item.text);
             const languages = await languageList();
             const labelTypes = { general: 0, food: 0, cosmetic: 0 };
+            const savedRows = [];
             let successful = 0;
 
             LOG.info(`Mass translation ${sessionId}: ${texts.length} texts × ${targetLanguages.length} languages`);
@@ -338,8 +316,7 @@ module.exports = class TranslatorService extends cds.ApplicationService {
                         textToTranslate: item.text,
                         sourceLanguage: 'auto',
                         targetLanguage: targetLanguageLabel,
-                        sessionId,
-                        createdBy: userId(req)
+                        sessionId
                     };
                     if (result.success) {
                         return { ...base, outcome: 'Success', translatedText: result.translated_text,
@@ -350,12 +327,11 @@ module.exports = class TranslatorService extends cds.ApplicationService {
                         observation: mass.observationFor(item, 'Mass translation FAILED', ` - Error: ${errorMessage}`) };
                 });
 
-                await insertResults(records);
+                savedRows.push(...await insertResults(records));
                 successful += records.filter((r) => r.outcome === 'Success').length;
             }
 
             const totalTranslations = texts.length * targetLanguages.length;
-            const savedRows = await SELECT.from(db.TestResults).where({ sessionId }).orderBy('ID');
             const workbook = mass.sessionResultsWorkbook(savedRows, languages);
 
             await UPDATE(MassTranslations, job.ID).with({
