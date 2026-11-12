@@ -21,9 +21,10 @@ entity ActivityLog : cuid, managed {
   details      : String(1000);
   language     : String(100);
   itemCount    : Integer;
-  sessionId    : String(100);
+  sessionId    : String(100); // mass translation run
+  translation  : Association to TestResults; // single translation
   activityInfo : Association to ActivityTypes on activityInfo.code = activity;
-  results      : Association to many TestResults on results.sessionId = sessionId;
+  results      : Association to many TestResults on results.sessionId = sessionId or results.ID = translation.ID;
 }
 
 entity MassTranslations : cuid, managed {

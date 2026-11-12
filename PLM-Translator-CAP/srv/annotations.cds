@@ -48,7 +48,7 @@ annotate TranslatorService.TestResults with @(
     { Value: testedBy }
   ]},
   UI.FieldGroup #Record  : { Data: [
-    { Value: sessionId },
+    { Value: sessionId, @UI.Hidden: { $edmJson: { $Eq: [ { $Path: 'sessionId' }, { $Null: null } ] } } },
     { Value: createdAt },
     { Value: createdBy },
     { Value: modifiedAt },
@@ -213,7 +213,10 @@ annotate TranslatorService.ActivityLog with @(
       ID           : 'Translations',
       Label        : 'Translations',
       Target       : 'results/@UI.LineItem',
-      @UI.Hidden: { $edmJson: { $Eq: [ { $Path: 'sessionId' }, { $Null: null } ] } }
+      @UI.Hidden: { $edmJson: { $And: [
+        { $Eq: [ { $Path: 'sessionId' }, { $Null: null } ] },
+        { $Eq: [ { $Path: 'translation_ID' }, { $Null: null } ] }
+      ] } }
     }
   ],
   UI.FieldGroup #Details : { Data: [
@@ -221,10 +224,11 @@ annotate TranslatorService.ActivityLog with @(
     { Value: details },
     { Value: language },
     { Value: itemCount },
-    { Value: sessionId }
+    { Value: sessionId, @UI.Hidden: { $edmJson: { $Eq: [ { $Path: 'sessionId' }, { $Null: null } ] } } }
   ]}
 ) {
-  ID        @UI.Hidden;
+  ID          @UI.Hidden;
+  translation @UI.Hidden;
   createdAt @title: 'Time';
   createdBy @title: 'User';
   activity  @title: 'Activity'

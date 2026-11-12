@@ -158,7 +158,6 @@ module.exports = class TranslatorService extends cds.ApplicationService {
             }
 
             data.sourceLanguage ??= 'auto';
-            data.sessionId ??= crypto.randomUUID();
             data.targetLanguage = formatTargetLanguage(data.targetLanguage, await languageList());
         });
 
@@ -168,7 +167,7 @@ module.exports = class TranslatorService extends cds.ApplicationService {
                 details: `Saved result (${data.outcome})`,
                 language: data.targetLanguage,
                 itemCount: 1,
-                sessionId: data.sessionId
+                translation_ID: data.ID ?? result?.ID
             });
         });
 
